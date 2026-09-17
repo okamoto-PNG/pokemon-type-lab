@@ -82,8 +82,14 @@ const abId = ja => Number(Object.keys(ABILITY_JA).find(k => ABILITY_JA[k] === ja
 const M = (name, ability, item) => ({ ...mon(name), ability: ability ? abId(ability) : null, item: item ?? null });
 const em = (atkJa, m) => effMultiplier(ti(atkJa), m);
 
-ok(ITEMS.length === 21, `相性に効く持ち物 ${ITEMS.length} 件（半減きのみ18＋特殊3）`);
-ok(ITEMS.filter(x => x.mode.startsWith('berry')).length === 18, '半減きのみ 18 種');
+ok(ITEMS.length === 143, `持ち物 ${ITEMS.length} 件を収録`);
+ok(ITEMS.filter(x => x.mode).length === 21, 'うち相性に効くのは 21 件（半減きのみ18＋ふうせん等3）');
+ok(ITEMS.every(x => x.ja && x.g), '全持ち物に和名とグループがある');
+ok(!ITEMS.some(x => x.ja.includes('ナイト') && x.ja.length > 4), 'メガストーンは除外されている');
+ok(ITEM_BY.get('leftovers')?.ja === 'たべのこし' && !ITEM_BY.get('leftovers').mode, 'たべのこしは収録されるが相性には効かない');
+{ const c = { ...mon('カビゴン'), ability: null, item: 'leftovers' };
+  ok(effMultiplier(ti('かくとう'), c) === 2, '相性に効かない持ち物は倍率を変えない'); }
+ok(ITEMS.filter(x => x.mode && x.mode.startsWith('berry')).length === 18, '半減きのみ 18 種');
 ok(ITEM_BY.get('roseli-berry')?.ja === 'ロゼルのみ', 'PokéAPI に無いロゼルのみを補正できている');
 ok(TYPES[ITEM_BY.get('roseli-berry').t].ja === 'フェアリー', 'ロゼルのみ = フェアリー半減');
 ok(Object.keys(ABILITY_FX).length === 20, '相性を書き換えるとくせい 20 件');

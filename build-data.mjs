@@ -46,6 +46,21 @@ const ABILITY_FX = {
   'wonder-guard':    { wonder: true },
 };
 
+/**
+ * 持ち物として出すカテゴリ。アイテム条項（同じ持ち物は1つまで）を検証するには
+ * 相性に効かないものも選べる必要があるので、対戦で持てるものを一通り入れる。
+ *   除外: メガストーン（このツールはメガを個体として持っているので二重管理になる）
+ *         プレート・メモリ（アルセウス／シルヴァディ専用。ロースターにいない）
+ *         ダイマックスクリスタル・サンドイッチ等（持ち物ではない）
+ */
+const ITEM_GROUPS = [
+  { cat: 'held-items',       label: '一般' },
+  { cat: 'choice',           label: 'こだわり' },
+  { cat: 'type-enhancement', label: 'タイプ強化' },
+  { cat: 'species-specific', label: '特定ポケモン用' },
+  { cat: 'bad-held-items',   label: 'デメリットあり' },
+];
+
 /** きのみ以外で相性に効く持ち物 */
 const ITEM_FX = {
   'air-balloon': { mode: 'immune', type: 'ground', note: '攻撃を受けると割れる' },
@@ -275,12 +290,14 @@ for (const [slug, fx] of Object.entries(ABILITY_FX)) {
 }
 console.error(`相性を書き換えるとくせい: ${Object.keys(abilityFx).length} 件`);
 
-// 半減きのみ（category 7）＋ 相性に効く持ち物
+// 半減きのみ（category 7）＋ 対戦で持てる持ち物一式
+// 第9世代に存在するものだけ（itemgameindices）。Champions 単位の持ち物データは PokéAPI に無い。
 const itemRes = await q(`{
   berryItems: item(where:{item_category_id:{_eq:7}}, order_by:{id:asc}) {
     name itemnames(where:{language_id:{_eq:1}}) { name } berries { natural_gift_type_id } }
-  special: item(where:{name:{_in:[${Object.keys(ITEM_FX).map(n => `"${n}"`)}]}}) {
-    name itemnames(where:{language_id:{_eq:1}}) { name } }
+  general: item(where:{itemcategory:{name:{_in:[${ITEM_GROUPS.map(g => `"${g.cat}"`)}]}}}, order_by:{id:asc}) {
+    name itemcategory { name } itemnames(where:{language_id:{_eq:1}}) { name }
+    itemgameindices(where:{generation_id:{_eq:9}}) { generation_id } }
 }`);
 
 const items = [];
@@ -296,17 +313,35 @@ for (const it of itemRes.berryItems) {
   if (ja == null || ti == null) { console.error(`! きのみを解決できません: ${it.name}（和名=${ja} タイプ=${ti}）`); continue; }
   seenItem.add(it.name);
   // ホズのみだけは「効果抜群でなくても半減」する
-  items.push({ s: it.name, ja, t: ti, mode: it.name === 'chilan-berry' ? 'berry-always' : 'berry' });
+  items.push({ s: it.name, ja, g: '相性に効く', t: ti, mode: it.name === 'chilan-berry' ? 'berry-always' : 'berry' });
 }
-for (const it of itemRes.special) {
+// 相性に効く特殊な持ち物（ふうせん等）は「相性に効く」グループに入れる
+const fxFound = new Set();
+for (const it of itemRes.general) {
   const fx = ITEM_FX[it.name];
+  if (!fx) continue;
   const ja = it.itemnames[0]?.name;
   if (!ja) { console.error(`! 持ち物の和名がありません: ${it.name}`); continue; }
-  items.push({ s: it.name, ja, mode: fx.mode, t: fx.type != null ? toIdx(fx.type) : null, note: fx.note });
+  fxFound.add(it.name);
+  items.push({ s: it.name, ja, g: '相性に効く', mode: fx.mode, t: fx.type != null ? toIdx(fx.type) : null, note: fx.note });
 }
+for (const n of Object.keys(ITEM_FX)) if (!fxFound.has(n)) console.error(`! ITEM_FX: "${n}" が見つかりません`);
+
+// 残りは相性に効かないが、アイテム条項の検証に必要なので入れる
+const groupLabel = new Map(ITEM_GROUPS.map(g => [g.cat, g.label]));
+let skippedNoJa = 0, skippedOld = 0;
+for (const it of itemRes.general) {
+  if (ITEM_FX[it.name]) continue;
+  if (!it.itemgameindices.length) { skippedOld++; continue; }     // 第9世代に存在しない
+  const ja = it.itemnames[0]?.name;
+  if (!ja) { skippedNoJa++; continue; }
+  items.push({ s: it.name, ja, g: groupLabel.get(it.itemcategory.name) });
+}
+if (skippedOld || skippedNoJa) console.error(`持ち物の除外: 旧世代のみ ${skippedOld} 件 / 和名なし ${skippedNoJa} 件`);
 const patchUnused = Object.keys(ITEM_PATCH).filter(k => !patchUsed.has(k));
 if (patchUnused.length) console.error(`ITEM_PATCH が不要になりました（PokéAPI 側が直った可能性）: ${patchUnused.join(', ')}`);
-console.error(`持ち物: ${items.length} 件（半減きのみ ${items.filter(i => i.mode.startsWith('berry')).length} 件）`);
+const fxCount = items.filter(i => i.mode).length;
+console.error(`持ち物: ${items.length} 件（うち相性に効く ${fxCount} 件）`);
 
 const data = { types, chart, pokemon, regulation, abilities, abilityFx, items };
 const json = JSON.stringify(data);

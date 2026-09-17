@@ -442,8 +442,26 @@ const POOL = new Set(REG.species);    // 使用可能な species id
 
 const ABILITY_JA = DATA.abilities;    // { ability_id: 和名 }
 const ABILITY_FX = DATA.abilityFx;    // { ability_id: 相性への効果 }
-const ITEMS      = DATA.items;        // 相性に効く持ち物だけ
+const ITEMS      = DATA.items;        // 対戦で持てる持ち物。mode があるものだけ相性に効く
 const ITEM_BY    = new Map(ITEMS.map(it => [it.s, it]));
+
+// ドロップダウン用に、データに現れた順でグループ化する（先頭が「相性に効く」）
+const ITEM_GROUPS = (() => {
+  const m = new Map();
+  for (const it of ITEMS) {
+    const g = it.g ?? "その他";
+    if (!m.has(g)) m.set(g, []);
+    m.get(g).push(it);
+  }
+  return [...m.entries()];
+})();
+
+/** ドロップダウンに出す表示名。効果が分かるものは括弧で添える。 */
+function itemLabel(it) {
+  if (it.mode === "berry" || it.mode === "berry-always") return `${it.ja}（${TYPES[it.t].ja}半減）`;
+  if (it.note) return `${it.ja}（${it.note}）`;
+  return it.ja;
+}
 
 const POKEMON = DATA.pokemon.map(([name, t1, t2, gen, legend, roma, kind, sid, legal, abils], i) => ({
   i, name, gen, kind, abils,
@@ -921,13 +939,17 @@ function renderSlots() {
     isel.id = `it-${i}`;
     isel.title = "もちもの";
     isel.append(new Option("もちもの —", ""));
-    for (const it of ITEMS) {
-      const label = it.t != null && it.mode.startsWith("berry")
-        ? `${it.ja}（${TYPES[it.t].ja}半減）`
-        : `${it.ja}（${it.note}）`;
-      isel.append(new Option(label, it.s, false, m.item === it.s));
+    for (const [gname, list] of ITEM_GROUPS) {
+      const og = document.createElement("optgroup");
+      og.label = gname;
+      for (const it of list) og.append(new Option(itemLabel(it), it.s, false, m.item === it.s));
+      isel.append(og);
     }
-    if (m.item) isel.classList.add("set");
+    if (m.item) {
+      isel.classList.add("set");
+      // 相性に効かない持ち物を選んでも行列は動かない。黙って無反応に見えないよう明示する。
+      if (!ITEM_BY.get(m.item)?.mode) isel.title = "もちもの（この持ち物は相性には影響しません）";
+    }
     isel.onchange = e => { m.item = e.target.value || null; render(); };
     cfg.append(isel);
     s.append(cfg);
@@ -1010,7 +1032,7 @@ function renderLegend() {
     w.append(el("span", "m " + mulClass(m), mulText(m)), document.createTextNode(label));
     L.append(w);
   });
-  L.append(el("span", null, "とくせいは倍率に反映済み。半減きのみは1回限りなので ⇒ で併記（判定には含めません）"));
+  L.append(el("span", null, `とくせいは倍率に反映済み。半減きのみは1回限りなので ⇒ で併記（判定には含めません）。持ち物 ${ITEMS.length} 件のうち相性に効くのは ${ITEMS.filter(i => i.mode).length} 件で、残りはアイテム条項の確認用です`));
   L.append(el("span", null, "判定 ― 危険: 弱点2体以上かつ半減1体以下／注意: 弱点 > 受け皿／手薄: 半減できる味方ゼロ"));
 }
 
@@ -1203,6 +1225,7 @@ $("explain").innerHTML = `
 
 <h4>9. とくせいと持ち物は「持続するか」で扱いを分ける</h4>
 <p>相性を書き換える要素には2種類あります。<b>持ち続けるもの</b>（とくせい ${Object.keys(ABILITY_FX).length} 件、ふうせん・くろいてっきゅう・ねらいのまと）は倍率そのものに畳み込み、<b>1回で消えるもの</b>（半減きのみ18種）はセルに <code>⇒</code> で併記するだけにしています。きのみを倍率に混ぜると「この枠は安全」と読めてしまいますが、実際には2発目から元に戻るからです。危険度の判定もきのみを無視します ― 保険であって解決ではないので。</p>
+<p>持ち物は ${ITEMS.length} 件収録していますが、相性に効くのは ${ITEMS.filter(i => i.mode).length} 件だけです。残りを入れてあるのは、アイテム条項（同じ持ち物は1つまで）を検証するために「相性に効かない持ち物も選べる」必要があるからで、選んでも行列は1マスも動きません。ドロップダウンの先頭グループが効く21件です。</p>
 <p>とくせいの効果だけは PokéAPI が自然言語の説明文でしか持っていないので、<code>build-data.mjs</code> に手で表を書いています。ただし書くのはスラッグ（<code>levitate</code> など）だけで、id への解決と和名の取得はビルド時に自動です。綴りを間違えれば起動時に警告が出ます。</p>
 <p>副作用として、倍率が <code>×2 / ×½</code> のような 2 のべき乗だけではなくなりました。ハードロックは効果抜群を <code>×0.75</code> にするので <code>×4 → ×3</code> が出ます。表示は離散テーブルをやめて関数に置き換えてあります。</p>
 `;
