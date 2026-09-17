@@ -977,9 +977,12 @@ function renderRegbar() {
   box.append(el("span", null, REG.label));
   box.append(el("span", "period", `${REG.start} → ${REG.end}`));
   if (st.expired) {
-    box.append(el("span", "stale", "期間終了 ― 新レギュレーションのデータに更新してください"));
+    box.append(el("span", "stale",
+      `${REG.id} は ${REG.end} で終了 ― Claude に「ポケモンのツール更新して」と頼んでください`));
   } else if (st.before) {
     box.append(el("span", "stale", "開始前"));
+  } else if (st.daysLeft <= 14) {
+    box.append(el("span", "stale", `残り ${st.daysLeft} 日 ― まもなく新レギュレーションに切り替わります`));
   } else {
     box.append(el("span", null, `残り ${st.daysLeft} 日`));
   }
