@@ -1,0 +1,1096 @@
+<title>タイプ相性ラボ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* ===== トークン =========================================================== */
+:root{
+  --bg:#f1f4f3; --surface:#ffffff; --surface-2:#e8edeb; --surface-3:#dfe5e3;
+  --ink:#131a18; --ink-2:#475651; --muted:#75867f;
+  --line:#d6dedb; --line-2:#bfcac6;
+  --accent:#1c5966; --on-accent:#f2fbfd;
+  --crit:#a8382a; --crit-1:#f6dcd7; --crit-2:#e3ab9f;
+  --warn:#8d6410; --warn-1:#f7ebcf;
+  --good:#2c6647; --good-1:#d7ebdf; --good-2:#aed4bf;
+  --void:#1c5966;
+  --r:10px;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic UI",system-ui,sans-serif;
+  --disp:"Archivo","Zen Kaku Gothic New","Hiragino Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1211; --surface:#151c1a; --surface-2:#1d2623; --surface-3:#26302c;
+    --ink:#e2e9e6; --ink-2:#a3b2ad; --muted:#7a8a84;
+    --line:#25302c; --line-2:#36423d;
+    --accent:#6ab6c6; --on-accent:#051619;
+    --crit:#e8796a; --crit-1:#3b1d18; --crit-2:#6d3126;
+    --warn:#dcab55; --warn-1:#352a12;
+    --good:#6fc094; --good-1:#152e21; --good-2:#22503a;
+    --void:#2b6675;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1211; --surface:#151c1a; --surface-2:#1d2623; --surface-3:#26302c;
+  --ink:#e2e9e6; --ink-2:#a3b2ad; --muted:#7a8a84;
+  --line:#25302c; --line-2:#36423d;
+  --accent:#6ab6c6; --on-accent:#051619;
+  --crit:#e8796a; --crit-1:#3b1d18; --crit-2:#6d3126;
+  --warn:#dcab55; --warn-1:#352a12;
+  --good:#6fc094; --good-1:#152e21; --good-2:#22503a;
+  --void:#2b6675;
+}
+
+/* ===== ベース ============================================================= */
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--sans); font-size:14px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px; margin:0 auto; padding-inline:16px; padding-block:0 56px}
+h1,h2,h3{margin:0; text-wrap:balance; font-weight:700}
+button{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+@media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important} }
+
+.eyebrow{
+  font-family:var(--disp); font-size:10px; font-weight:700; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted);
+}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums}
+.note{font-size:11px; color:var(--muted); margin-top:8px}
+
+/* ===== ヘッダー =========================================================== */
+header.bar{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--bg);
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+}
+.bar-in{
+  max-width:1120px; margin:0 auto; padding:10px 16px;
+  display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+}
+.logo{font-family:var(--disp); font-weight:800; font-size:17px; letter-spacing:-.01em}
+.logo .dot{color:var(--accent)}
+.bar-note{font-size:11px; color:var(--muted); margin-left:auto}
+
+/* ===== サマリー =========================================================== */
+.hero{padding-block:22px 18px; border-bottom:1px solid var(--line)}
+.hero h1{font-size:clamp(22px,4.4vw,31px); letter-spacing:-.02em; line-height:1.28; margin-top:4px}
+.hero p{margin:10px 0 0; color:var(--ink-2); max-width:62ch; font-size:13.5px}
+
+.readout{
+  display:grid; gap:1px; margin-top:20px;
+  grid-template-columns:repeat(auto-fit,minmax(132px,1fr));
+  background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden;
+}
+.stat{background:var(--surface); padding:12px 14px 13px}
+.stat .k{font-size:10.5px; letter-spacing:.08em; color:var(--muted); font-weight:500}
+.stat .v{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:28px; line-height:1.15; font-weight:600; margin-top:2px}
+.stat .u{font-size:11px; color:var(--muted); margin-left:3px; font-family:var(--sans); font-weight:400}
+.stat.is-crit .v{color:var(--crit)} .stat.is-warn .v{color:var(--warn)} .stat.is-good .v{color:var(--good)}
+.stat .sub{font-size:10.5px; color:var(--muted); margin-top:1px; line-height:1.4}
+
+/* ===== セクション ========================================================= */
+section{padding-block:30px}
+section + section{border-top:1px solid var(--line)}
+.shead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px}
+.shead h2{font-size:16.5px; letter-spacing:-.01em}
+.shead .hint{font-size:11.5px; color:var(--muted)}
+.lede{margin:2px 0 16px; color:var(--ink-2); font-size:12.5px; max-width:70ch}
+
+/* ===== パーティ =========================================================== */
+.slots{display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:8px}
+.slot{
+  position:relative; background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r); padding:9px 10px 10px; min-height:68px; text-align:left;
+  display:flex; flex-direction:column; gap:6px;
+}
+.slot.empty{
+  border-style:dashed; background:transparent; color:var(--muted);
+  align-items:center; justify-content:center; font-size:11.5px;
+}
+.slot .idx{
+  position:absolute; top:7px; right:9px; font-family:var(--mono); font-size:10px;
+  color:var(--muted); font-weight:600;
+}
+.slot .nm{font-size:13px; font-weight:500; line-height:1.35; padding-right:16px; overflow-wrap:anywhere}
+.slot .nm .sub{display:block; font-size:10px; color:var(--muted); font-weight:400}
+.slot .rm{
+  position:absolute; bottom:7px; right:7px; width:20px; height:20px; padding:0;
+  border:1px solid var(--line); background:var(--surface); border-radius:5px;
+  color:var(--muted); cursor:pointer; line-height:1; font-size:12px;
+}
+.slot .rm:hover{border-color:var(--crit); color:var(--crit)}
+
+.chips{display:flex; gap:4px; flex-wrap:wrap}
+.tchip{
+  font-size:10.5px; font-weight:700; line-height:1; padding:4px 7px 5px;
+  border-radius:4px; letter-spacing:.02em; white-space:nowrap;
+}
+
+/* ===== 検索 =============================================================== */
+.search{margin-top:18px}
+.search-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+input[type="search"]{
+  flex:1 1 220px; min-width:0; font:inherit; font-size:13.5px; color:var(--ink);
+  background:var(--surface); border:1px solid var(--line-2); border-radius:8px;
+  padding:9px 12px; -webkit-appearance:none;
+}
+input[type="search"]::placeholder{color:var(--muted)}
+.btn{
+  border:1px solid var(--line-2); background:var(--surface); border-radius:8px;
+  padding:9px 13px; font-size:12.5px; cursor:pointer; white-space:nowrap;
+}
+.btn:hover{border-color:var(--accent); color:var(--accent)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:500}
+.btn.primary:hover{color:var(--on-accent); filter:brightness(1.1)}
+.btn:disabled{opacity:.4; cursor:not-allowed}
+.btn.sm{padding:5px 9px; font-size:11.5px; border-radius:6px}
+
+.results{
+  display:flex; flex-wrap:wrap; gap:5px; margin-top:12px;
+  max-height:214px; overflow-y:auto; padding:2px;
+}
+.res{
+  display:flex; align-items:center; gap:6px; cursor:pointer;
+  border:1px solid var(--line); background:var(--surface); border-radius:7px;
+  padding:5px 9px 5px 7px; font-size:12px; text-align:left;
+}
+.res:hover{border-color:var(--accent)}
+.res .swatch{display:flex; gap:2px; flex:none}
+.res .sq{width:7px; height:14px; border-radius:2px}
+.res-note{font-size:11.5px; color:var(--muted); margin-top:10px}
+.tog{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); cursor:pointer; white-space:nowrap}
+.tog input{accent-color:var(--accent); width:15px; height:15px; margin:0; flex:none}
+.kchip{
+  font-size:9px; font-weight:700; letter-spacing:.04em; line-height:1; flex:none;
+  padding:2px 4px 3px; border-radius:3px; background:var(--surface-2); color:var(--muted);
+}
+.kchip.k1{background:var(--accent); color:var(--on-accent)}
+.kchip.ng{background:var(--crit); color:#fff}
+
+/* ===== レギュレーション ==================================================== */
+.regbar{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-top:12px;
+  font-size:11.5px; color:var(--ink-2);
+}
+.regbar .badge{
+  font-family:var(--disp); font-weight:700; font-size:11px; letter-spacing:.04em;
+  background:var(--accent); color:var(--on-accent); padding:4px 8px 5px; border-radius:5px;
+}
+.regbar .period{font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums}
+.regbar .stale{
+  background:var(--warn-1); color:var(--warn); font-weight:600; font-size:10.5px;
+  padding:3px 7px 4px; border-radius:5px; box-shadow:inset 0 0 0 1px currentColor;
+}
+.rules{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px}
+.rchip{
+  display:flex; align-items:center; gap:5px; font-size:11.5px; line-height:1.3;
+  border:1px solid var(--line); background:var(--surface);
+  border-radius:7px; padding:6px 9px 7px;
+}
+.rchip .mark{font-family:var(--mono); font-weight:700; flex:none}
+.rchip.ok  .mark{color:var(--good)}
+.rchip.ng  {border-color:var(--crit); background:var(--crit-1)}
+.rchip.ng  .mark{color:var(--crit)}
+.rchip.ng  {color:var(--crit)}
+.rchip.na  {color:var(--muted)}
+.slot.illegal{border-color:var(--crit); box-shadow:inset 0 0 0 1px var(--crit-1)}
+
+/* ===== 被ダメージ行列 ===================================================== */
+.scroller{overflow-x:auto; margin-top:2px; border:1px solid var(--line); border-radius:var(--r); background:var(--surface)}
+table.matrix{border-collapse:collapse; width:100%; min-width:366px}
+table.matrix th, table.matrix td{border-bottom:1px solid var(--line); padding:0}
+table.matrix tbody tr:last-child td{border-bottom:0}
+table.matrix thead th{
+  background:var(--surface-2); border-bottom:1px solid var(--line-2);
+  font-size:10px; font-weight:600; color:var(--ink-2); padding:6px 3px; vertical-align:bottom;
+}
+table.matrix thead th.h-type{text-align:left; padding-left:10px; width:78px}
+table.matrix thead th.h-mon{width:32px}
+table.matrix thead th .n{font-family:var(--mono); font-size:12px; color:var(--ink); display:block}
+table.matrix thead th .mn{
+  display:none; font-size:8.5px; font-weight:400; color:var(--muted);
+  max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:1px auto 0;
+}
+table.matrix thead th.h-bar{width:60px} table.matrix thead th.h-j{width:56px; padding-right:8px}
+@media (min-width:760px){
+  table.matrix thead th.h-mon{width:68px}
+  table.matrix thead th .mn{display:block}
+  table.matrix thead th.h-type{width:96px}
+}
+tr.row:hover td{background:color-mix(in srgb, var(--accent) 7%, transparent)}
+td.t-name{padding:0 4px 0 10px; font-size:11.5px; white-space:nowrap}
+td.cell{text-align:center}
+.m{
+  display:block; margin:3px 2px; border-radius:4px; padding:5px 0;
+  font-family:var(--mono); font-variant-numeric:tabular-nums;
+  font-size:12px; font-weight:600; line-height:1.1;
+}
+.m-x4{background:var(--crit); color:#fff}
+.m-x2{background:var(--crit-1); color:var(--crit)}
+.m-x1{background:transparent; color:var(--muted); font-weight:400}
+.m-h {background:var(--good-1); color:var(--good)}
+.m-q {background:var(--good-2); color:var(--good)}
+.m-x0{background:var(--void); color:#f2fbfd}
+td.bar{padding:0 4px}
+.barwrap{display:flex; height:7px; border-radius:99px; overflow:hidden; background:var(--surface-3)}
+.barwrap i{display:block; height:100%}
+.barwrap .w{background:var(--crit)} .barwrap .r{background:var(--good)}
+td.bar .cnt{font-family:var(--mono); font-size:9.5px; color:var(--muted); display:block; text-align:center; margin-top:1px}
+td.judge{padding-right:8px; text-align:right}
+.jchip{
+  display:inline-block; font-size:10px; font-weight:700; padding:3px 6px 4px;
+  border-radius:4px; line-height:1; white-space:nowrap;
+}
+.j-danger{background:var(--crit); color:#fff}
+.j-caution{background:var(--warn-1); color:var(--warn); box-shadow:inset 0 0 0 1px currentColor}
+.j-thin{background:transparent; color:var(--muted); box-shadow:inset 0 0 0 1px var(--line-2)}
+.j-safe{background:transparent; color:var(--good)}
+tr.row.lvl-danger td.t-name{box-shadow:inset 3px 0 0 var(--crit)}
+tr.row.lvl-caution td.t-name{box-shadow:inset 3px 0 0 var(--warn)}
+
+.legend{display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:10px; font-size:10.5px; color:var(--muted); align-items:center}
+.legend .m{display:inline-block; margin:0 3px 0 0; padding:3px 6px; font-size:10px; vertical-align:middle}
+
+/* ===== 攻撃カバレッジ ===================================================== */
+.cov{display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); align-items:start}
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:14px 15px 15px}
+.panel h3{font-size:12px; letter-spacing:.04em; color:var(--ink-2); font-weight:600}
+.gauge{height:9px; border-radius:99px; background:var(--surface-3); overflow:hidden; margin:8px 0 6px}
+.gauge i{display:block; height:100%; background:var(--accent)}
+.big{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:26px; font-weight:600; line-height:1.2; margin-top:6px}
+
+/* ===== 補完の提案 ========================================================= */
+.sug{display:grid; gap:8px}
+.sugrow{
+  display:grid; gap:10px 12px; align-items:center;
+  grid-template-columns:auto 1fr auto;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:11px 12px;
+}
+.sugrow.top{border-color:var(--accent); box-shadow:inset 3px 0 0 var(--accent)}
+.rank{font-family:var(--mono); font-size:12px; font-weight:600; color:var(--muted); width:16px; text-align:right}
+.sugmain{min-width:0}
+.sugdelta{font-size:11px; color:var(--ink-2); margin-top:6px}
+.sugdelta b{font-family:var(--mono); font-weight:600; font-variant-numeric:tabular-nums}
+.sugdelta .up{color:var(--good)} .sugdelta .down{color:var(--crit)}
+.sugex{font-size:11px; color:var(--muted); margin-top:3px; overflow-wrap:anywhere}
+.swapnote{font-size:11px; color:var(--muted); align-self:center}
+@media (max-width:540px){ .sugrow{grid-template-columns:auto 1fr} .sugrow .btn{grid-column:2; justify-self:start} }
+
+/* ===== 資料 =============================================================== */
+details.box{border:1px solid var(--line); border-radius:var(--r); background:var(--surface); margin-top:10px}
+details.box > summary{
+  cursor:pointer; padding:12px 14px; font-size:13px; font-weight:500; list-style:none;
+  display:flex; align-items:center; gap:8px;
+}
+details.box > summary::-webkit-details-marker{display:none}
+details.box > summary::before{content:"+"; font-family:var(--mono); color:var(--accent); font-weight:600}
+details.box[open] > summary::before{content:"−"}
+details.box .body{padding:0 14px 14px}
+table.full{border-collapse:collapse; font-family:var(--mono); font-size:9.5px}
+table.full th{font-weight:600; color:var(--ink-2); padding:2px}
+table.full th.v{writing-mode:vertical-rl; text-orientation:mixed; height:60px; font-family:var(--sans); font-size:9.5px; font-weight:500}
+table.full th.h{font-family:var(--sans); text-align:right; padding-right:6px; white-space:nowrap; font-weight:500}
+table.full td{width:21px; height:19px; text-align:center; border:1px solid var(--surface); border-radius:2px}
+.f2{background:var(--crit-1); color:var(--crit); font-weight:600}
+.f1{background:var(--surface-2); color:var(--muted)}
+.fh{background:var(--good-1); color:var(--good)}
+.f0{background:var(--void); color:#f2fbfd; font-weight:600}
+
+.prose{font-size:12.5px; color:var(--ink-2); max-width:72ch}
+.prose h4{margin:15px 0 4px; font-size:12px; color:var(--ink); letter-spacing:.02em; font-weight:700}
+.prose h4:first-child{margin-top:2px}
+.prose p{margin:0 0 6px}
+.prose code{font-family:var(--mono); font-size:11.5px; background:var(--surface-2); padding:1px 4px; border-radius:3px}
+
+footer{border-top:1px solid var(--line); margin-top:8px; padding-top:16px; font-size:11px; color:var(--muted); line-height:1.75}
+footer a{color:var(--accent)}
+</style>
+
+<header class="bar">
+  <div class="bar-in">
+    <span class="logo">タイプ相性<span class="dot">ラボ</span></span>
+    <span class="bar-note" id="barNote"></span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <span class="eyebrow">Party defense analyzer</span>
+    <div class="regbar" id="regbar"></div>
+    <h1>その6体、同じタイプで<br>まとめて落ちませんか。</h1>
+    <p>パーティを組むと、18の攻撃タイプそれぞれについて「何体が弱点を突かれ、何体が受けられるか」を総当たりで計算します。穴が見つかったら、7体目（または入れ替え）に何型を置けばいちばん塞がるかも全探索で出します。</p>
+    <div class="readout" id="readout"></div>
+  </div>
+
+  <section>
+    <div class="shead"><h2>パーティ</h2><span class="hint">最大6体・× ボタンで削除</span></div>
+    <div class="slots" id="slots"></div>
+    <div class="rules" id="rules"></div>
+    <div class="search">
+      <div class="search-row">
+        <input type="search" id="q" placeholder="名前・ローマ字・タイプ名で検索（例: ガブリアス / kairyu / メガ / はがね）" autocomplete="off" spellcheck="false">
+        <button class="btn" id="sample" type="button">サンプル</button>
+        <button class="btn" id="clear" type="button">全消去</button>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:10px">
+        <label class="tog" for="legalOnly">
+          <input type="checkbox" id="legalOnly" checked>
+          <span id="legalOnlyLabel">レギュレーション使用可のみ</span>
+        </label>
+        <label class="tog" for="incForms">
+          <input type="checkbox" id="incForms" checked>
+          メガシンカ・リージョンフォルムも検索対象にする
+        </label>
+      </div>
+      <div class="results" id="results"></div>
+      <div class="res-note" id="resNote"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <h2>被ダメージ行列</h2>
+      <span class="hint">行＝攻撃タイプ／列＝パーティの並び順</span>
+      <button class="btn sm" id="sortBtn" type="button" style="margin-left:auto">並び: 危険度順</button>
+    </div>
+    <p class="lede">セルは、その攻撃タイプを受けたときの倍率です。複合タイプは2つの倍率を掛け合わせるので、<span class="num">×4</span> や <span class="num">×¼</span> が生まれます。</p>
+    <div class="scroller"><table class="matrix" id="matrix"></table></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>攻撃カバレッジ</h2><span class="hint">各メンバーが自分のタイプで殴ると仮定</span></div>
+    <p class="lede">守りだけ固めても、相手を崩せなければ詰みます。パーティの持つタイプで「抜群（2倍以上）」を取れる範囲を数えます。</p>
+    <div class="cov" id="cov"></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>補完の提案</h2><span class="hint" id="sugHint"></span></div>
+    <p class="lede">単タイプ18通り＋複合153通り＝<span class="num">171型</span>をすべて試し、危険タイプが最も減る構成を選びます。パーティが6体埋まっているときは、どの枠を差し替えるかも含めて総当たりします。</p>
+    <div class="sug" id="sug"></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>資料</h2></div>
+    <details class="box">
+      <summary>タイプ相性表（18×18・行が攻撃側）</summary>
+      <div class="body">
+        <div class="scroller" style="border:0;background:transparent;border-radius:0"><table class="full" id="fullChart"></table></div>
+        <p class="note">空欄は等倍。<span class="num">2</span>＝抜群、<span class="num">½</span>＝半減、<span class="num">0</span>＝無効。</p>
+      </div>
+    </details>
+    <details class="box">
+      <summary>このツールの中身（計算のしくみ）</summary>
+      <div class="body prose" id="explain"></div>
+    </details>
+  </section>
+
+  <footer>
+    データ出典: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a>（2026-09-17 時点のスナップショットを埋め込み。実行時の通信はありません）。
+    収録 <span class="num" id="cnt"></span> 体 ― <span id="cntBreak"></span>。<br>
+    レギュレーション情報の出典: <span id="regSources"></span>。<br>
+    ポケモンは株式会社ポケモン／任天堂の登録商標です。本ページは非公式のファンツールです。
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ============================================================================
+ * タイプ相性ラボ
+ * ---------------------------------------------------------------------------
+ * 構成:
+ *   1. データ層     … ビルド時に埋め込んだ PokéAPI のスナップショット
+ *   2. 相性計算     … 純粋関数のみ。DOM に触らないのでそのままテストできる
+ *   3. パーティ分析 … 防御行列 / 判定 / スコア / 攻撃カバレッジ
+ *   4. 補完探索     … 171型の全探索（6体のときは 6枠 × 171型 = 1026通り）
+ *   5. 状態と描画   … 素の DOM 操作
+ * ==========================================================================*/
+
+const DATA = {"types":[{"id":1,"ja":"ノーマル","en":"Normal"},{"id":2,"ja":"かくとう","en":"Fighting"},{"id":3,"ja":"ひこう","en":"Flying"},{"id":4,"ja":"どく","en":"Poison"},{"id":5,"ja":"じめん","en":"Ground"},{"id":6,"ja":"いわ","en":"Rock"},{"id":7,"ja":"むし","en":"Bug"},{"id":8,"ja":"ゴースト","en":"Ghost"},{"id":9,"ja":"はがね","en":"Steel"},{"id":10,"ja":"ほのお","en":"Fire"},{"id":11,"ja":"みず","en":"Water"},{"id":12,"ja":"くさ","en":"Grass"},{"id":13,"ja":"でんき","en":"Electric"},{"id":14,"ja":"エスパー","en":"Psychic"},{"id":15,"ja":"こおり","en":"Ice"},{"id":16,"ja":"ドラゴン","en":"Dragon"},{"id":17,"ja":"あく","en":"Dark"},{"id":18,"ja":"フェアリー","en":"Fairy"}],"chart":[[1,1,1,1,1,0.5,1,0,0.5,1,1,1,1,1,1,1,1,1],[2,1,0.5,0.5,1,2,0.5,0,2,1,1,1,1,0.5,2,1,2,0.5],[1,2,1,1,1,0.5,2,1,0.5,1,1,2,0.5,1,1,1,1,1],[1,1,1,0.5,0.5,0.5,1,0.5,0,1,1,2,1,1,1,1,1,2],[1,1,0,2,1,2,0.5,1,2,2,1,0.5,2,1,1,1,1,1],[1,0.5,2,1,0.5,1,2,1,0.5,2,1,1,1,1,2,1,1,1],[1,0.5,0.5,0.5,1,1,1,0.5,0.5,0.5,1,2,1,2,1,1,2,0.5],[0,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,0.5,1],[1,1,1,1,1,2,1,1,0.5,0.5,0.5,1,0.5,1,2,1,1,2],[1,1,1,1,1,0.5,2,1,2,0.5,0.5,2,1,1,2,0.5,1,1],[1,1,1,1,2,2,1,1,1,2,0.5,0.5,1,1,1,0.5,1,1],[1,1,0.5,0.5,2,2,0.5,1,0.5,0.5,2,0.5,1,1,1,0.5,1,1],[1,1,2,1,0,1,1,1,1,1,2,0.5,0.5,1,1,0.5,1,1],[1,2,1,2,1,1,1,1,0.5,1,1,1,1,0.5,1,1,0,1],[1,1,2,1,2,1,1,1,0.5,0.5,0.5,2,1,1,0.5,2,1,1],[1,1,1,1,1,1,1,1,0.5,1,1,1,1,1,1,2,1,0],[1,0.5,1,1,1,1,1,2,1,1,1,1,1,2,1,1,0.5,0.5],[1,2,1,0.5,1,1,1,1,0.5,0.5,1,1,1,1,1,2,2,1]],"pokemon":[["フシギダネ",11,3,1,0,"fushigidane",0,1,0],["フシギソウ",11,3,1,0,"fushigisou",0,2,0],["フシギバナ",11,3,1,0,"fushigibana",0,3,1],["メガフシギバナ",11,3,1,0,"fushigibana",1,3,1],["ヒトカゲ",9,-1,1,0,"hitokage",0,4,0],["リザード",9,-1,1,0,"lizardo",0,5,0],["メガリザードンＸ",9,15,1,0,"lizardon",1,6,1],["メガリザードンＹ",9,2,1,0,"lizardon",1,6,1],["リザードン",9,2,1,0,"lizardon",0,6,1],["ゼニガメ",10,-1,1,0,"zenigame",0,7,0],["カメール",10,-1,1,0,"kameil",0,8,0],["カメックス",10,-1,1,0,"kamex",0,9,1],["メガカメックス",10,-1,1,0,"kamex",1,9,1],["キャタピー",6,-1,1,0,"caterpie",0,10,0],["トランセル",6,-1,1,0,"transel",0,11,0],["バタフリー",6,2,1,0,"butterfree",0,12,0],["ビードル",6,3,1,0,"beedle",0,13,0],["コクーン",6,3,1,0,"cocoon",0,14,0],["スピアー",6,3,1,0,"spear",0,15,1],["メガスピアー",6,3,1,0,"spear",1,15,1],["ポッポ",0,2,1,0,"poppo",0,16,0],["ピジョン",0,2,1,0,"pigeon",0,17,0],["ピジョット",0,2,1,0,"pigeot",0,18,1],["メガピジョット",0,2,1,0,"pigeot",1,18,1],["コラッタ",0,-1,1,0,"koratta",0,19,0],["コラッタ（アローラのすがた）",16,0,1,0,"koratta",2,19,0],["ラッタ",0,-1,1,0,"ratta",0,20,0],["ラッタ（アローラのすがた）",16,0,1,0,"ratta",2,20,0],["オニスズメ",0,2,1,0,"onisuzume",0,21,0],["オニドリル",0,2,1,0,"onidrill",0,22,0],["アーボ",3,-1,1,0,"arbo",0,23,0],["アーボック",3,-1,1,0,"arbok",0,24,1],["ピカチュウ",12,-1,1,0,"pikachu",0,25,1],["メガライチュウX",12,-1,1,0,"raichu",1,26,1],["メガライチュウY",12,-1,1,0,"raichu",1,26,1],["ライチュウ",12,-1,1,0,"raichu",0,26,1],["ライチュウ（アローラのすがた）",12,13,1,0,"raichu",2,26,1],["サンド",4,-1,1,0,"sand",0,27,0],["サンド（アローラのすがた）",14,8,1,0,"sand",2,27,0],["サンドパン",4,-1,1,0,"sandpan",0,28,0],["サンドパン（アローラのすがた）",14,8,1,0,"sandpan",2,28,0],["ニドラン♀",3,-1,1,0,"nidoran♀",0,29,0],["ニドリーナ",3,-1,1,0,"nidorina",0,30,0],["ニドクイン",3,4,1,0,"nidoqueen",0,31,0],["ニドラン♂",3,-1,1,0,"nidoran♂",0,32,0],["ニドリーノ",3,-1,1,0,"nidorino",0,33,0],["ニドキング",3,4,1,0,"nidoking",0,34,0],["ピッピ",17,-1,1,0,"pippi",0,35,0],["ピクシー",17,-1,1,0,"pixy",0,36,1],["メガピクシー",17,2,1,0,"pixy",1,36,1],["ロコン",9,-1,1,0,"rokon",0,37,0],["ロコン（アローラのすがた）",14,-1,1,0,"rokon",2,37,0],["キュウコン",9,-1,1,0,"kyukon",0,38,1],["キュウコン（アローラのすがた）",14,17,1,0,"kyukon",2,38,1],["プリン",0,17,1,0,"purin",0,39,0],["プクリン",0,17,1,0,"pukurin",0,40,1],["ズバット",3,2,1,0,"zubat",0,41,0],["ゴルバット",3,2,1,0,"golbat",0,42,0],["ナゾノクサ",11,3,1,0,"nazonokusa",0,43,0],["クサイハナ",11,3,1,0,"kusaihana",0,44,0],["ラフレシア",11,3,1,0,"ruffresia",0,45,1],["パラス",6,11,1,0,"paras",0,46,0],["パラセクト",6,11,1,0,"parasect",0,47,0],["コンパン",6,3,1,0,"kongpang",0,48,0],["モルフォン",6,3,1,0,"morphon",0,49,0],["ディグダ",4,-1,1,0,"digda",0,50,0],["ディグダ（アローラのすがた）",4,8,1,0,"digda",2,50,0],["ダグトリオ",4,-1,1,0,"dugtrio",0,51,0],["ダグトリオ（アローラのすがた）",4,8,1,0,"dugtrio",2,51,0],["ニャース",0,-1,1,0,"nyarth",0,52,0],["ニャース（アローラのすがた）",16,-1,1,0,"nyarth",2,52,0],["ニャース（ガラルのすがた）",8,-1,1,0,"nyarth",2,52,0],["ペルシアン",0,-1,1,0,"persian",0,53,1],["ペルシアン（アローラのすがた）",16,-1,1,0,"persian",2,53,1],["コダック",10,-1,1,0,"koduck",0,54,0],["ゴルダック",10,-1,1,0,"golduck",0,55,0],["マンキー",1,-1,1,0,"mankey",0,56,0],["オコリザル",1,-1,1,0,"okorizaru",0,57,0],["ガーディ",9,-1,1,0,"gardie",0,58,0],["ガーディ（ヒスイのすがた）",9,5,1,0,"gardie",2,58,0],["ウインディ",9,-1,1,0,"windie",0,59,1],["ウインディ（ヒスイのすがた）",9,5,1,0,"windie",2,59,1],["ニョロモ",10,-1,1,0,"nyoromo",0,60,0],["ニョロゾ",10,-1,1,0,"nyorozo",0,61,0],["ニョロボン",10,1,1,0,"nyorobon",0,62,0],["ケーシィ",13,-1,1,0,"casey",0,63,0],["ユンゲラー",13,-1,1,0,"yungerer",0,64,0],["フーディン",13,-1,1,0,"foodin",0,65,1],["メガフーディン",13,-1,1,0,"foodin",1,65,1],["ワンリキー",1,-1,1,0,"wanriky",0,66,0],["ゴーリキー",1,-1,1,0,"goriky",0,67,0],["カイリキー",1,-1,1,0,"kairiky",0,68,1],["マダツボミ",11,3,1,0,"madatsubomi",0,69,0],["ウツドン",11,3,1,0,"utsudon",0,70,0],["ウツボット",11,3,1,0,"utsubot",0,71,1],["メガウツボット",11,3,1,0,"utsubot",1,71,1],["メノクラゲ",10,3,1,0,"menokurage",0,72,0],["ドククラゲ",10,3,1,0,"dokukurage",0,73,0],["イシツブテ",5,4,1,0,"isitsubute",0,74,0],["イシツブテ（アローラのすがた）",5,12,1,0,"isitsubute",2,74,0],["ゴローン",5,4,1,0,"golone",0,75,0],["ゴローン（アローラのすがた）",5,12,1,0,"golone",2,75,0],["ゴローニャ",5,4,1,0,"golonya",0,76,0],["ゴローニャ（アローラのすがた）",5,12,1,0,"golonya",2,76,0],["ポニータ",9,-1,1,0,"ponyta",0,77,0],["ポニータ（ガラルのすがた）",13,-1,1,0,"ponyta",2,77,0],["ギャロップ",9,-1,1,0,"gallop",0,78,0],["ギャロップ（ガラルのすがた）",13,17,1,0,"gallop",2,78,0],["ヤドン",10,13,1,0,"yadon",0,79,0],["ヤドン（ガラルのすがた）",13,-1,1,0,"yadon",2,79,0],["メガヤドラン",10,13,1,0,"yadoran",1,80,1],["ヤドラン",10,13,1,0,"yadoran",0,80,1],["ヤドラン（ガラルのすがた）",3,13,1,0,"yadoran",2,80,1],["コイル",12,8,1,0,"coil",0,81,0],["レアコイル",12,8,1,0,"rarecoil",0,82,0],["カモネギ",0,2,1,0,"kamonegi",0,83,1],["カモネギ（ガラルのすがた）",1,-1,1,0,"kamonegi",2,83,1],["ドードー",0,2,1,0,"dodo",0,84,0],["ドードリオ",0,2,1,0,"dodorio",0,85,0],["パウワウ",10,-1,1,0,"pawou",0,86,0],["ジュゴン",10,14,1,0,"jugon",0,87,0],["ベトベター",3,-1,1,0,"betbeter",0,88,0],["ベトベター（アローラのすがた）",3,16,1,0,"betbeter",2,88,0],["ベトベトン",3,-1,1,0,"betbeton",0,89,0],["ベトベトン（アローラのすがた）",3,16,1,0,"betbeton",2,89,0],["シェルダー",10,-1,1,0,"shellder",0,90,0],["パルシェン",10,14,1,0,"parshen",0,91,0],["ゴース",7,3,1,0,"ghos",0,92,0],["ゴースト",7,3,1,0,"ghost",0,93,0],["ゲンガー",7,3,1,0,"gangar",0,94,1],["メガゲンガー",7,3,1,0,"gangar",1,94,1],["イワーク",5,4,1,0,"iwark",0,95,0],["スリープ",13,-1,1,0,"sleepe",0,96,0],["スリーパー",13,-1,1,0,"sleeper",0,97,0],["クラブ",10,-1,1,0,"crab",0,98,0],["キングラー",10,-1,1,0,"kingler",0,99,0],["ビリリダマ",12,-1,1,0,"biriridama",0,100,0],["ビリリダマ（ヒスイのすがた）",12,11,1,0,"biriridama",2,100,0],["マルマイン",12,-1,1,0,"marumine",0,101,0],["マルマイン（ヒスイのすがた）",12,11,1,0,"marumine",2,101,0],["タマタマ",11,13,1,0,"tamatama",0,102,0],["ナッシー",11,13,1,0,"nassy",0,103,0],["ナッシー（アローラのすがた）",11,15,1,0,"nassy",2,103,0],["カラカラ",4,-1,1,0,"karakara",0,104,0],["ガラガラ",4,-1,1,0,"garagara",0,105,0],["ガラガラ（アローラのすがた）",9,7,1,0,"garagara",2,105,0],["サワムラー",1,-1,1,0,"sawamular",0,106,0],["エビワラー",1,-1,1,0,"ebiwalar",0,107,0],["ベロリンガ",0,-1,1,0,"beroringa",0,108,0],["ドガース",3,-1,1,0,"dogars",0,109,0],["マタドガス",3,-1,1,0,"matadogas",0,110,0],["マタドガス（ガラルのすがた）",3,17,1,0,"matadogas",2,110,0],["サイホーン",4,5,1,0,"sihorn",0,111,0],["サイドン",4,5,1,0,"sidon",0,112,0],["ラッキー",0,-1,1,0,"lucky",0,113,0],["モンジャラ",11,-1,1,0,"monjara",0,114,0],["ガルーラ",0,-1,1,0,"garura",0,115,1],["メガガルーラ",0,-1,1,0,"garura",1,115,1],["タッツー",10,-1,1,0,"tattu",0,116,0],["シードラ",10,-1,1,0,"seadra",0,117,0],["トサキント",10,-1,1,0,"tosakinto",0,118,0],["アズマオウ",10,-1,1,0,"azumao",0,119,0],["ヒトデマン",10,-1,1,0,"hitodeman",0,120,0],["スターミー",10,13,1,0,"starmie",0,121,1],["メガスターミー",10,13,1,0,"starmie",1,121,1],["バリヤード",13,17,1,0,"barrierd",0,122,1],["バリヤード（ガラルのすがた）",14,13,1,0,"barrierd",2,122,1],["ストライク",6,2,1,0,"strike",0,123,0],["ルージュラ",14,13,1,0,"rougela",0,124,0],["エレブー",12,-1,1,0,"eleboo",0,125,0],["ブーバー",9,-1,1,0,"boober",0,126,0],["カイロス",6,-1,1,0,"kailios",0,127,1],["メガカイロス",6,2,1,0,"kailios",1,127,1],["ケンタロス",0,-1,1,0,"kentauros",0,128,1],["ケンタロス（パルデアのすがた・ウォーター）",1,10,1,0,"kentauros",2,128,1],["ケンタロス（パルデアのすがた・ブレイズ）",1,9,1,0,"kentauros",2,128,1],["ケンタロス（パルデアのすがた）",1,-1,1,0,"kentauros",2,128,1],["コイキング",10,-1,1,0,"koiking",0,129,0],["ギャラドス",10,2,1,0,"gyarados",0,130,1],["メガギャラドス",10,16,1,0,"gyarados",1,130,1],["ラプラス",10,14,1,0,"laplace",0,131,0],["メタモン",0,-1,1,0,"metamon",0,132,1],["イーブイ",0,-1,1,0,"eievui",0,133,0],["シャワーズ",10,-1,1,0,"showers",0,134,1],["サンダース",12,-1,1,0,"thunders",0,135,1],["ブースター",9,-1,1,0,"booster",0,136,1],["ポリゴン",0,-1,1,0,"porygon",0,137,0],["オムナイト",5,10,1,0,"omnite",0,138,0],["オムスター",5,10,1,0,"omstar",0,139,0],["カブト",5,10,1,0,"kabuto",0,140,0],["カブトプス",5,10,1,0,"kabutops",0,141,0],["プテラ",5,2,1,0,"ptera",0,142,1],["メガプテラ",5,2,1,0,"ptera",1,142,1],["カビゴン",0,-1,1,0,"kabigon",0,143,1],["フリーザー",14,2,1,1,"freezer",0,144,0],["フリーザー（ガラルのすがた）",13,2,1,1,"freezer",2,144,0],["サンダー",12,2,1,1,"thunder",0,145,0],["サンダー（ガラルのすがた）",1,2,1,1,"thunder",2,145,0],["ファイヤー",9,2,1,1,"fire",0,146,0],["ファイヤー（ガラルのすがた）",16,2,1,1,"fire",2,146,0],["ミニリュウ",15,-1,1,0,"miniryu",0,147,0],["ハクリュー",15,-1,1,0,"hakuryu",0,148,0],["カイリュー",15,2,1,0,"kairyu",0,149,1],["メガカイリュー",15,2,1,0,"kairyu",1,149,1],["ミュウツー",13,-1,1,1,"mewtwo",0,150,0],["メガミュウツーＸ",13,1,1,1,"mewtwo",1,150,0],["メガミュウツーＹ",13,-1,1,1,"mewtwo",1,150,0],["ミュウ",13,-1,1,1,"mew",0,151,0],["チコリータ",11,-1,2,0,"chicorita",0,152,0],["ベイリーフ",11,-1,2,0,"bayleaf",0,153,0],["メガニウム",11,-1,2,0,"meganium",0,154,1],["メガメガニウム",11,17,2,0,"meganium",1,154,1],["ヒノアラシ",9,-1,2,0,"hinoarashi",0,155,0],["マグマラシ",9,-1,2,0,"magmarashi",0,156,0],["バクフーン",9,-1,2,0,"bakphoon",0,157,1],["バクフーン（ヒスイのすがた）",9,7,2,0,"bakphoon",2,157,1],["ワニノコ",10,-1,2,0,"waninoko",0,158,0],["アリゲイツ",10,-1,2,0,"alligates",0,159,0],["オーダイル",10,-1,2,0,"ordile",0,160,1],["メガオーダイル",10,15,2,0,"ordile",1,160,1],["オタチ",0,-1,2,0,"otachi",0,161,0],["オオタチ",0,-1,2,0,"ootachi",0,162,0],["ホーホー",0,2,2,0,"hoho",0,163,0],["ヨルノズク",0,2,2,0,"yorunozuku",0,164,0],["レディバ",6,2,2,0,"rediba",0,165,0],["レディアン",6,2,2,0,"redian",0,166,0],["イトマル",6,3,2,0,"itomaru",0,167,0],["アリアドス",6,3,2,0,"ariados",0,168,1],["クロバット",3,2,2,0,"crobat",0,169,0],["チョンチー",10,12,2,0,"chonchie",0,170,0],["ランターン",10,12,2,0,"lantern",0,171,0],["ピチュー",12,-1,2,0,"pichu",0,172,0],["ピィ",17,-1,2,0,"py",0,173,0],["ププリン",0,17,2,0,"pupurin",0,174,0],["トゲピー",17,-1,2,0,"togepy",0,175,0],["トゲチック",17,2,2,0,"togechick",0,176,0],["ネイティ",13,2,2,0,"naty",0,177,0],["ネイティオ",13,2,2,0,"natio",0,178,0],["メリープ",12,-1,2,0,"merriep",0,179,0],["モココ",12,-1,2,0,"mokoko",0,180,0],["デンリュウ",12,-1,2,0,"denryu",0,181,1],["メガデンリュウ",12,15,2,0,"denryu",1,181,1],["キレイハナ",11,-1,2,0,"kireihana",0,182,0],["マリル",10,17,2,0,"maril",0,183,0],["マリルリ",10,17,2,0,"marilli",0,184,1],["ウソッキー",5,-1,2,0,"usokkie",0,185,0],["ニョロトノ",10,-1,2,0,"nyorotono",0,186,1],["ハネッコ",11,2,2,0,"hanecco",0,187,0],["ポポッコ",11,2,2,0,"popocco",0,188,0],["ワタッコ",11,2,2,0,"watacco",0,189,0],["エイパム",0,-1,2,0,"eipam",0,190,0],["ヒマナッツ",11,-1,2,0,"himanuts",0,191,0],["キマワリ",11,-1,2,0,"kimawari",0,192,0],["ヤンヤンマ",6,2,2,0,"yanyanma",0,193,0],["ウパー",10,4,2,0,"upah",0,194,0],["ウパー（パルデアのすがた）",3,4,2,0,"upah",2,194,0],["ヌオー",10,4,2,0,"nuoh",0,195,0],["エーフィ",13,-1,2,0,"eifie",0,196,1],["ブラッキー",16,-1,2,0,"bracky",0,197,1],["ヤミカラス",16,2,2,0,"yamikarasu",0,198,0],["ヤドキング",10,13,2,0,"yadoking",0,199,1],["ヤドキング（ガラルのすがた）",3,13,2,0,"yadoking",2,199,1],["ムウマ",7,-1,2,0,"muma",0,200,0],["アンノーン",13,-1,2,0,"unknown",0,201,0],["ソーナンス",13,-1,2,0,"sonans",0,202,0],["キリンリキ",0,13,2,0,"kirinriki",0,203,0],["クヌギダマ",6,-1,2,0,"kunugidama",0,204,0],["フォレトス",6,8,2,0,"foretos",0,205,1],["ノコッチ",0,-1,2,0,"nokocchi",0,206,0],["グライガー",4,2,2,0,"gliger",0,207,0],["ハガネール",8,4,2,0,"haganeil",0,208,1],["メガハガネール",8,4,2,0,"haganeil",1,208,1],["ブルー",17,-1,2,0,"bulu",0,209,0],["グランブル",17,-1,2,0,"granbulu",0,210,0],["ハリーセン",10,3,2,0,"harysen",0,211,1],["ハリーセン（ヒスイのすがた）",16,3,2,0,"harysen",2,211,0],["ハッサム",6,8,2,0,"hassam",0,212,1],["メガハッサム",6,8,2,0,"hassam",1,212,1],["ツボツボ",6,5,2,0,"tsubotsubo",0,213,0],["ヘラクロス",6,1,2,0,"heracros",0,214,1],["メガヘラクロス",6,1,2,0,"heracros",1,214,1],["ニューラ",16,14,2,0,"nyula",0,215,0],["ニューラ（ヒスイのすがた）",1,3,2,0,"nyula",2,215,0],["ヒメグマ",0,-1,2,0,"himeguma",0,216,0],["リングマ",0,-1,2,0,"ringuma",0,217,0],["マグマッグ",9,-1,2,0,"magmag",0,218,0],["マグカルゴ",9,5,2,0,"magcargot",0,219,0],["ウリムー",14,4,2,0,"urimoo",0,220,0],["イノムー",14,4,2,0,"inomoo",0,221,0],["サニーゴ",10,5,2,0,"sunnygo",0,222,0],["サニーゴ（ガラルのすがた）",7,-1,2,0,"sunnygo",2,222,0],["テッポウオ",10,-1,2,0,"teppouo",0,223,0],["オクタン",10,-1,2,0,"okutank",0,224,0],["デリバード",14,2,2,0,"delibird",0,225,0],["マンタイン",10,2,2,0,"mantain",0,226,0],["エアームド",8,2,2,0,"airmd",0,227,1],["メガエアームド",8,2,2,0,"airmd",1,227,1],["デルビル",16,9,2,0,"delvil",0,228,0],["ヘルガー",16,9,2,0,"hellgar",0,229,1],["メガヘルガー",16,9,2,0,"hellgar",1,229,1],["キングドラ",10,15,2,0,"kingdra",0,230,0],["ゴマゾウ",4,-1,2,0,"gomazou",0,231,0],["ドンファン",4,-1,2,0,"donfan",0,232,0],["ポリゴン２",0,-1,2,0,"porygon2",0,233,0],["オドシシ",0,-1,2,0,"odoshishi",0,234,0],["ドーブル",0,-1,2,0,"doble",0,235,0],["バルキー",1,-1,2,0,"balkie",0,236,0],["カポエラー",1,-1,2,0,"kapoerer",0,237,0],["ムチュール",14,13,2,0,"muchul",0,238,0],["エレキッド",12,-1,2,0,"elekid",0,239,0],["ブビィ",9,-1,2,0,"buby",0,240,0],["ミルタンク",0,-1,2,0,"miltank",0,241,0],["ハピナス",0,-1,2,0,"happinas",0,242,0],["ライコウ",12,-1,2,1,"raikou",0,243,0],["エンテイ",9,-1,2,1,"entei",0,244,0],["スイクン",10,-1,2,1,"suicune",0,245,0],["ヨーギラス",5,4,2,0,"yogiras",0,246,0],["サナギラス",5,4,2,0,"sanagiras",0,247,0],["バンギラス",5,16,2,0,"bangiras",0,248,1],["メガバンギラス",5,16,2,0,"bangiras",1,248,1],["ルギア",13,2,2,1,"lugia",0,249,0],["ホウオウ",9,2,2,1,"houou",0,250,0],["セレビィ",13,11,2,1,"celebi",0,251,0],["キモリ",11,-1,3,0,"kimori",0,252,0],["ジュプトル",11,-1,3,0,"juptile",0,253,0],["ジュカイン",11,-1,3,0,"jukain",0,254,1],["メガジュカイン",11,15,3,0,"jukain",1,254,1],["アチャモ",9,-1,3,0,"achamo",0,255,0],["ワカシャモ",9,1,3,0,"wakasyamo",0,256,0],["バシャーモ",9,1,3,0,"bursyamo",0,257,1],["メガバシャーモ",9,1,3,0,"bursyamo",1,257,1],["ミズゴロウ",10,-1,3,0,"mizugorou",0,258,0],["ヌマクロー",10,4,3,0,"numacraw",0,259,0],["メガラグラージ",10,4,3,0,"laglarge",1,260,1],["ラグラージ",10,4,3,0,"laglarge",0,260,1],["ポチエナ",16,-1,3,0,"pochiena",0,261,0],["グラエナ",16,-1,3,0,"graena",0,262,0],["ジグザグマ",0,-1,3,0,"jiguzaguma",0,263,0],["ジグザグマ（ガラルのすがた）",16,0,3,0,"jiguzaguma",2,263,0],["マッスグマ",0,-1,3,0,"massuguma",0,264,0],["マッスグマ（ガラルのすがた）",16,0,3,0,"massuguma",2,264,0],["ケムッソ",6,-1,3,0,"kemusso",0,265,0],["カラサリス",6,-1,3,0,"karasalis",0,266,0],["アゲハント",6,2,3,0,"agehunt",0,267,0],["マユルド",6,-1,3,0,"mayuld",0,268,0],["ドクケイル",6,3,3,0,"dokucale",0,269,0],["ハスボー",10,11,3,0,"hassboh",0,270,0],["ハスブレロ",10,11,3,0,"hasubrero",0,271,0],["ルンパッパ",10,11,3,0,"runpappa",0,272,0],["タネボー",11,-1,3,0,"taneboh",0,273,0],["コノハナ",11,16,3,0,"konohana",0,274,0],["ダーテング",11,16,3,0,"dirteng",0,275,0],["スバメ",0,2,3,0,"subame",0,276,0],["オオスバメ",0,2,3,0,"ohsubame",0,277,0],["キャモメ",10,2,3,0,"camome",0,278,0],["ペリッパー",10,2,3,0,"pelipper",0,279,1],["ラルトス",13,17,3,0,"ralts",0,280,0],["キルリア",13,17,3,0,"kirlia",0,281,0],["サーナイト",13,17,3,0,"sirnight",0,282,1],["メガサーナイト",13,17,3,0,"sirnight",1,282,1],["アメタマ",6,10,3,0,"ametama",0,283,0],["アメモース",6,2,3,0,"amemoth",0,284,0],["キノココ",11,-1,3,0,"kinococo",0,285,0],["キノガッサ",11,1,3,0,"kinogassa",0,286,0],["ナマケロ",0,-1,3,0,"namakero",0,287,0],["ヤルキモノ",0,-1,3,0,"yarukimono",0,288,0],["ケッキング",0,-1,3,0,"kekking",0,289,0],["ツチニン",6,4,3,0,"tutinin",0,290,0],["テッカニン",6,2,3,0,"tekkanin",0,291,0],["ヌケニン",6,7,3,0,"nukenin",0,292,0],["ゴニョニョ",0,-1,3,0,"gonyonyo",0,293,0],["ドゴーム",0,-1,3,0,"dogohmb",0,294,0],["バクオング",0,-1,3,0,"bakuong",0,295,0],["マクノシタ",1,-1,3,0,"makunoshita",0,296,0],["ハリテヤマ",1,-1,3,0,"hariteyama",0,297,0],["ルリリ",0,17,3,0,"ruriri",0,298,0],["ノズパス",5,-1,3,0,"nosepass",0,299,0],["エネコ",0,-1,3,0,"eneco",0,300,0],["エネコロロ",0,-1,3,0,"enekororo",0,301,0],["メガヤミラミ",16,7,3,0,"yamirami",1,302,1],["ヤミラミ",16,7,3,0,"yamirami",0,302,1],["クチート",8,17,3,0,"kucheat",0,303,1],["メガクチート",8,17,3,0,"kucheat",1,303,1],["ココドラ",8,5,3,0,"cokodora",0,304,0],["コドラ",8,5,3,0,"kodora",0,305,0],["ボスゴドラ",8,5,3,0,"bossgodora",0,306,1],["メガボスゴドラ",8,-1,3,0,"bossgodora",1,306,1],["アサナン",1,13,3,0,"asanan",0,307,0],["チャーレム",1,13,3,0,"charem",0,308,1],["メガチャーレム",1,13,3,0,"charem",1,308,1],["ラクライ",12,-1,3,0,"rakurai",0,309,0],["メガライボルト",12,-1,3,0,"livolt",1,310,1],["ライボルト",12,-1,3,0,"livolt",0,310,1],["プラスル",12,-1,3,0,"prasle",0,311,0],["マイナン",12,-1,3,0,"minun",0,312,0],["バルビート",6,-1,3,0,"barubeat",0,313,0],["イルミーゼ",6,-1,3,0,"illumise",0,314,0],["ロゼリア",11,3,3,0,"roselia",0,315,0],["ゴクリン",3,-1,3,0,"gokulin",0,316,0],["マルノーム",3,-1,3,0,"marunoom",0,317,1],["キバニア",10,16,3,0,"kibanha",0,318,0],["サメハダー",10,16,3,0,"samehader",0,319,1],["メガサメハダー",10,16,3,0,"samehader",1,319,1],["ホエルコ",10,-1,3,0,"hoeruko",0,320,0],["ホエルオー",10,-1,3,0,"whaloh",0,321,0],["ドンメル",9,4,3,0,"donmel",0,322,0],["バクーダ",9,4,3,0,"bakuuda",0,323,1],["メガバクーダ",9,4,3,0,"bakuuda",1,323,1],["コータス",9,-1,3,0,"cotoise",0,324,1],["バネブー",13,-1,3,0,"baneboo",0,325,0],["ブーピッグ",13,-1,3,0,"boopig",0,326,0],["パッチール",0,-1,3,0,"patcheel",0,327,0],["ナックラー",4,-1,3,0,"nuckrar",0,328,0],["ビブラーバ",4,15,3,0,"vibrava",0,329,0],["フライゴン",4,15,3,0,"flygon",0,330,0],["サボネア",11,-1,3,0,"sabonea",0,331,0],["ノクタス",11,16,3,0,"noctus",0,332,0],["チルット",0,2,3,0,"tyltto",0,333,0],["チルタリス",15,2,3,0,"tyltalis",0,334,1],["メガチルタリス",15,17,3,0,"tyltalis",1,334,1],["ザングース",0,-1,3,0,"zangoose",0,335,0],["ハブネーク",3,-1,3,0,"habunake",0,336,0],["ルナトーン",5,13,3,0,"lunatone",0,337,0],["ソルロック",5,13,3,0,"solrock",0,338,0],["ドジョッチ",10,4,3,0,"dojoach",0,339,0],["ナマズン",10,4,3,0,"namazun",0,340,0],["ヘイガニ",10,-1,3,0,"heigani",0,341,0],["シザリガー",10,16,3,0,"shizariger",0,342,0],["ヤジロン",4,13,3,0,"yajilon",0,343,0],["ネンドール",4,13,3,0,"nendoll",0,344,0],["リリーラ",5,11,3,0,"lilyla",0,345,0],["ユレイドル",5,11,3,0,"yuradle",0,346,0],["アノプス",5,6,3,0,"anopth",0,347,0],["アーマルド",5,6,3,0,"armaldo",0,348,0],["ヒンバス",10,-1,3,0,"hinbass",0,349,0],["ミロカロス",10,-1,3,0,"milokaross",0,350,1],["ポワルン",0,-1,3,0,"powalen",0,351,1],["ポワルン（あまみずのすがた）",10,-1,3,0,"powalen",2,351,1],["ポワルン（たいようのすがた）",9,-1,3,0,"powalen",2,351,1],["ポワルン（ゆきぐものすがた）",14,-1,3,0,"powalen",2,351,1],["カクレオン",0,-1,3,0,"kakureon",0,352,0],["カゲボウズ",7,-1,3,0,"kagebouzu",0,353,0],["ジュペッタ",7,-1,3,0,"juppeta",0,354,1],["メガジュペッタ",7,-1,3,0,"juppeta",1,354,1],["ヨマワル",7,-1,3,0,"yomawaru",0,355,0],["サマヨール",7,-1,3,0,"samayouru",0,356,0],["トロピウス",11,2,3,0,"tropius",0,357,0],["チリーン",13,-1,3,0,"chirean",0,358,1],["メガチリーン",13,8,3,0,"chirean",1,358,1],["アブソル",16,-1,3,0,"absol",0,359,1],["メガアブソル",16,-1,3,0,"absol",1,359,1],["メガアブソルZ",16,7,3,0,"absol",1,359,1],["ソーナノ",13,-1,3,0,"sohnano",0,360,0],["ユキワラシ",14,-1,3,0,"yukiwarashi",0,361,0],["オニゴーリ",14,-1,3,0,"onigohri",0,362,1],["メガオニゴーリ",14,-1,3,0,"onigohri",1,362,1],["タマザラシ",14,10,3,0,"tamazarashi",0,363,0],["トドグラー",14,10,3,0,"todoggler",0,364,0],["トドゼルガ",14,10,3,0,"todoseruga",0,365,0],["パールル",10,-1,3,0,"pearlulu",0,366,0],["ハンテール",10,-1,3,0,"huntail",0,367,0],["サクラビス",10,-1,3,0,"sakurabyss",0,368,0],["ジーランス",10,5,3,0,"glanth",0,369,0],["ラブカス",10,-1,3,0,"lovecus",0,370,0],["タツベイ",15,-1,3,0,"tatsubay",0,371,0],["コモルー",15,-1,3,0,"komoruu",0,372,0],["ボーマンダ",15,2,3,0,"bohmander",0,373,1],["メガボーマンダ",15,2,3,0,"bohmander",1,373,1],["ダンバル",8,13,3,0,"dumbber",0,374,0],["メタング",8,13,3,0,"metang",0,375,0],["メガメタグロス",8,13,3,0,"metagross",1,376,1],["メタグロス",8,13,3,0,"metagross",0,376,1],["レジロック",5,-1,3,1,"regirock",0,377,0],["レジアイス",14,-1,3,1,"regice",0,378,0],["レジスチル",8,-1,3,1,"registeel",0,379,0],["メガラティアス",15,13,3,1,"latias",1,380,0],["ラティアス",15,13,3,1,"latias",0,380,0],["メガラティオス",15,13,3,1,"latios",1,381,0],["ラティオス",15,13,3,1,"latios",0,381,0],["カイオーガ",10,-1,3,1,"kyogre",0,382,0],["ゲンシカイオーガ",10,-1,3,1,"kyogre",1,382,0],["グラードン",4,-1,3,1,"groudon",0,383,0],["ゲンシグラードン",4,9,3,1,"groudon",1,383,0],["メガレックウザ",15,2,3,1,"rayquaza",1,384,0],["レックウザ",15,2,3,1,"rayquaza",0,384,0],["ジラーチ",8,13,3,1,"jirachi",0,385,0],["デオキシス",13,-1,3,1,"deoxys",0,386,0],["ナエトル",11,-1,4,0,"naetle",0,387,0],["ハヤシガメ",11,-1,4,0,"hayashigame",0,388,0],["ドダイトス",11,4,4,0,"dodaitose",0,389,1],["ヒコザル",9,-1,4,0,"hikozaru",0,390,0],["モウカザル",9,1,4,0,"moukazaru",0,391,0],["ゴウカザル",9,1,4,0,"goukazaru",0,392,1],["ポッチャマ",10,-1,4,0,"pochama",0,393,0],["ポッタイシ",10,-1,4,0,"pottaishi",0,394,0],["エンペルト",10,8,4,0,"emperte",0,395,1],["ムックル",0,2,4,0,"mukkuru",0,396,0],["ムクバード",0,2,4,0,"mukubird",0,397,0],["ムクホーク",0,2,4,0,"mukuhawk",0,398,1],["メガムクホーク",1,2,4,0,"mukuhawk",1,398,1],["ビッパ",0,-1,4,0,"bippa",0,399,0],["ビーダル",0,10,4,0,"beadaru",0,400,0],["コロボーシ",6,-1,4,0,"korobohshi",0,401,0],["コロトック",6,-1,4,0,"korotock",0,402,0],["コリンク",12,-1,4,0,"kolink",0,403,0],["ルクシオ",12,-1,4,0,"luxio",0,404,0],["レントラー",12,-1,4,0,"rentorar",0,405,1],["スボミー",11,3,4,0,"subomie",0,406,0],["ロズレイド",11,3,4,0,"roserade",0,407,1],["ズガイドス",5,-1,4,0,"zugaidos",0,408,0],["ラムパルド",5,-1,4,0,"rampald",0,409,1],["タテトプス",5,8,4,0,"tatetops",0,410,0],["トリデプス",5,8,4,0,"torideps",0,411,1],["ミノムッチ",6,-1,4,0,"minomucchi",0,412,0],["ミノマダム",6,11,4,0,"minomadam",0,413,0],["ミノマダム（ゴミのミノ）",6,8,4,0,"minomadam",2,413,0],["ミノマダム（すなちのミノ）",6,4,4,0,"minomadam",2,413,0],["ガーメイル",6,2,4,0,"gamale",0,414,0],["ミツハニー",6,2,4,0,"mitsuhoney",0,415,0],["ビークイン",6,2,4,0,"beequen",0,416,0],["パチリス",12,-1,4,0,"pachirisu",0,417,0],["ブイゼル",10,-1,4,0,"buoysel",0,418,0],["フローゼル",10,-1,4,0,"floazel",0,419,0],["チェリンボ",11,-1,4,0,"cherinbo",0,420,0],["チェリム",11,-1,4,0,"cherrim",0,421,0],["カラナクシ",10,-1,4,0,"karanakushi",0,422,0],["トリトドン",10,4,4,0,"tritodon",0,423,0],["エテボース",0,-1,4,0,"eteboth",0,424,0],["フワンテ",7,2,4,0,"fuwante",0,425,0],["フワライド",7,2,4,0,"fuwaride",0,426,0],["ミミロル",0,-1,4,0,"mimirol",0,427,0],["ミミロップ",0,-1,4,0,"mimilop",0,428,1],["メガミミロップ",0,1,4,0,"mimilop",1,428,1],["ムウマージ",7,-1,4,0,"mumargi",0,429,0],["ドンカラス",16,2,4,0,"dongkarasu",0,430,0],["ニャルマー",0,-1,4,0,"nyarmar",0,431,0],["ブニャット",0,-1,4,0,"bunyatto",0,432,0],["リーシャン",13,-1,4,0,"lisyan",0,433,0],["スカンプー",3,16,4,0,"skunpuu",0,434,0],["スカタンク",3,16,4,0,"skutank",0,435,0],["ドーミラー",8,13,4,0,"dohmirror",0,436,0],["ドータクン",8,13,4,0,"dohtakun",0,437,0],["ウソハチ",5,-1,4,0,"usohachi",0,438,0],["マネネ",13,17,4,0,"manene",0,439,0],["ピンプク",0,-1,4,0,"pinpuku",0,440,0],["ペラップ",0,2,4,0,"perap",0,441,0],["ミカルゲ",7,16,4,0,"mikaruge",0,442,1],["フカマル",15,4,4,0,"fukamaru",0,443,0],["ガバイト",15,4,4,0,"gabite",0,444,0],["ガブリアス",15,4,4,0,"gaburias",0,445,1],["メガガブリアス",15,4,4,0,"gaburias",1,445,1],["メガガブリアスZ",15,-1,4,0,"gaburias",1,445,1],["ゴンベ",0,-1,4,0,"gonbe",0,446,0],["リオル",1,-1,4,0,"riolu",0,447,0],["メガルカリオ",1,8,4,0,"lucario",1,448,1],["メガルカリオZ",1,8,4,0,"lucario",1,448,1],["ルカリオ",1,8,4,0,"lucario",0,448,1],["ヒポポタス",4,-1,4,0,"hippopotas",0,449,0],["カバルドン",4,-1,4,0,"kabaldon",0,450,1],["スコルピ",3,6,4,0,"scorupi",0,451,0],["ドラピオン",3,16,4,0,"dorapion",0,452,0],["グレッグル",3,1,4,0,"gureggru",0,453,0],["ドクロッグ",3,1,4,0,"dokurog",0,454,1],["マスキッパ",11,-1,4,0,"muskippa",0,455,0],["ケイコウオ",10,-1,4,0,"keikouo",0,456,0],["ネオラント",10,-1,4,0,"neolant",0,457,0],["タマンタ",10,2,4,0,"tamanta",0,458,0],["ユキカブリ",11,14,4,0,"yukikaburi",0,459,0],["メガユキノオー",11,14,4,0,"yukinooh",1,460,1],["ユキノオー",11,14,4,0,"yukinooh",0,460,1],["マニューラ",16,14,4,0,"manyula",0,461,1],["ジバコイル",12,8,4,0,"jibacoil",0,462,0],["ベロベルト",0,-1,4,0,"berobelt",0,463,0],["ドサイドン",4,5,4,0,"dosidon",0,464,1],["モジャンボ",11,-1,4,0,"mojumbo",0,465,0],["エレキブル",12,-1,4,0,"elekible",0,466,0],["ブーバーン",9,-1,4,0,"booburn",0,467,0],["トゲキッス",17,2,4,0,"togekiss",0,468,0],["メガヤンマ",6,2,4,0,"megayanma",0,469,0],["リーフィア",11,-1,4,0,"leafia",0,470,1],["グレイシア",14,-1,4,0,"glacia",0,471,1],["グライオン",4,2,4,0,"glion",0,472,1],["マンムー",14,4,4,0,"mammoo",0,473,1],["ポリゴンＺ",0,-1,4,0,"porygon-z",0,474,0],["エルレイド",13,1,4,0,"erureido",0,475,1],["メガエルレイド",13,1,4,0,"erureido",1,475,1],["ダイノーズ",5,8,4,0,"dainose",0,476,0],["ヨノワール",7,-1,4,0,"yonoir",0,477,0],["メガユキメノコ",14,7,4,0,"yukimenoko",1,478,1],["ユキメノコ",14,7,4,0,"yukimenoko",0,478,1],["ロトム",12,7,4,0,"rotom",0,479,1],["ロトム（ウォッシュロトム）",12,10,4,0,"rotom",2,479,1],["ロトム（カットロトム）",12,11,4,0,"rotom",2,479,1],["ロトム（スピンロトム）",12,2,4,0,"rotom",2,479,1],["ロトム（ヒートロトム）",12,9,4,0,"rotom",2,479,1],["ロトム（フロストロトム）",12,14,4,0,"rotom",2,479,1],["ユクシー",13,-1,4,1,"yuxie",0,480,0],["エムリット",13,-1,4,1,"emrit",0,481,0],["アグノム",13,-1,4,1,"agnome",0,482,0],["ディアルガ",8,15,4,1,"dialga",0,483,0],["パルキア",10,15,4,1,"palkia",0,484,0],["ヒードラン",9,8,4,1,"heatran",0,485,0],["メガヒードラン",9,8,4,1,"heatran",1,485,0],["レジギガス",0,-1,4,1,"regigigas",0,486,0],["ギラティナ",7,15,4,1,"giratina",0,487,0],["クレセリア",13,-1,4,1,"cresselia",0,488,0],["フィオネ",10,-1,4,1,"phione",0,489,0],["マナフィ",10,-1,4,1,"manaphy",0,490,0],["ダークライ",16,-1,4,1,"darkrai",0,491,0],["メガダークライ",16,-1,4,1,"darkrai",1,491,0],["シェイミ",11,-1,4,1,"shaymin",0,492,0],["シェイミ（スカイフォルム）",11,2,4,1,"shaymin",2,492,0],["アルセウス",0,-1,4,1,"arceus",0,493,0],["ビクティニ",13,9,5,1,"victini",0,494,0],["ツタージャ",11,-1,5,0,"tsutarja",0,495,0],["ジャノビー",11,-1,5,0,"janovy",0,496,0],["ジャローダ",11,-1,5,0,"jalorda",0,497,1],["ポカブ",9,-1,5,0,"pokabu",0,498,0],["チャオブー",9,1,5,0,"chaoboo",0,499,0],["エンブオー",9,1,5,0,"enbuoh",0,500,1],["メガエンブオー",9,1,5,0,"enbuoh",1,500,1],["ミジュマル",10,-1,5,0,"mijumaru",0,501,0],["フタチマル",10,-1,5,0,"futachimaru",0,502,0],["ダイケンキ",10,-1,5,0,"daikenki",0,503,1],["ダイケンキ（ヒスイのすがた）",10,16,5,0,"daikenki",2,503,1],["ミネズミ",0,-1,5,0,"minezumi",0,504,0],["ミルホッグ",0,-1,5,0,"miruhog",0,505,1],["ヨーテリー",0,-1,5,0,"yorterrie",0,506,0],["ハーデリア",0,-1,5,0,"herderrie",0,507,0],["ムーランド",0,-1,5,0,"mooland",0,508,0],["チョロネコ",16,-1,5,0,"choroneko",0,509,0],["レパルダス",16,-1,5,0,"lepardas",0,510,1],["ヤナップ",11,-1,5,0,"yanappu",0,511,0],["ヤナッキー",11,-1,5,0,"yanakkie",0,512,1],["バオップ",9,-1,5,0,"baoppu",0,513,0],["バオッキー",9,-1,5,0,"baokkie",0,514,1],["ヒヤップ",10,-1,5,0,"hiyappu",0,515,0],["ヒヤッキー",10,-1,5,0,"hiyakkie",0,516,1],["ムンナ",13,-1,5,0,"munna",0,517,0],["ムシャーナ",13,-1,5,0,"musharna",0,518,1],["マメパト",0,2,5,0,"mamepato",0,519,0],["ハトーボー",0,2,5,0,"hatoboh",0,520,0],["ケンホロウ",0,2,5,0,"kenhallow",0,521,0],["シママ",12,-1,5,0,"shimama",0,522,0],["ゼブライカ",12,-1,5,0,"zebraika",0,523,0],["ダンゴロ",5,-1,5,0,"dangoro",0,524,0],["ガントル",5,-1,5,0,"gantle",0,525,0],["ギガイアス",5,-1,5,0,"gigaiath",0,526,0],["コロモリ",13,2,5,0,"koromori",0,527,0],["ココロモリ",13,2,5,0,"kokoromori",0,528,0],["モグリュー",4,-1,5,0,"mogurew",0,529,0],["ドリュウズ",4,8,5,0,"doryuzu",0,530,1],["メガドリュウズ",4,8,5,0,"doryuzu",1,530,1],["タブンネ",0,-1,5,0,"tabunne",0,531,1],["メガタブンネ",0,17,5,0,"tabunne",1,531,1],["ドッコラー",1,-1,5,0,"dokkorer",0,532,0],["ドテッコツ",1,-1,5,0,"dotekkotsu",0,533,0],["ローブシン",1,-1,5,0,"roubushin",0,534,1],["オタマロ",10,-1,5,0,"otamaro",0,535,0],["ガマガル",10,4,5,0,"gamagaru",0,536,0],["ガマゲロゲ",10,4,5,0,"gamageroge",0,537,0],["ナゲキ",1,-1,5,0,"nageki",0,538,0],["ダゲキ",1,-1,5,0,"dageki",0,539,0],["クルミル",6,11,5,0,"kurumiru",0,540,0],["クルマユ",6,11,5,0,"kurumayu",0,541,0],["ハハコモリ",6,11,5,0,"hahakomori",0,542,0],["フシデ",6,3,5,0,"fushide",0,543,0],["ホイーガ",6,3,5,0,"wheega",0,544,0],["ペンドラー",6,3,5,0,"pendror",0,545,1],["メガペンドラー",6,3,5,0,"pendror",1,545,1],["モンメン",11,17,5,0,"monmen",0,546,0],["エルフーン",11,17,5,0,"elfuun",0,547,1],["チュリネ",11,-1,5,0,"churine",0,548,0],["ドレディア",11,-1,5,0,"dredear",0,549,0],["ドレディア（ヒスイのすがた）",11,1,5,0,"dredear",2,549,0],["バスラオ",10,-1,5,0,"bassrao",0,550,0],["メグロコ",4,16,5,0,"meguroco",0,551,0],["ワルビル",4,16,5,0,"waruvile",0,552,0],["ワルビアル",4,16,5,0,"waruvial",0,553,1],["ダルマッカ",9,-1,5,0,"darumakka",0,554,0],["ダルマッカ（ガラルのすがた）",14,-1,5,0,"darumakka",2,554,0],["ヒヒダルマ",9,-1,5,0,"hihidaruma",0,555,0],["ヒヒダルマ（ガラルのすがた）",14,-1,5,0,"hihidaruma",2,555,0],["ヒヒダルマ（ダルマモード・ガラル）",14,9,5,0,"hihidaruma",2,555,0],["ヒヒダルマ（ダルマモード）",9,13,5,0,"hihidaruma",2,555,0],["マラカッチ",11,-1,5,0,"maracacchi",0,556,0],["イシズマイ",6,5,5,0,"ishizumai",0,557,0],["イワパレス",6,5,5,0,"iwapalace",0,558,0],["ズルッグ",16,1,5,0,"zuruggu",0,559,0],["ズルズキン",16,1,5,0,"zuruzukin",0,560,1],["メガズルズキン",16,1,5,0,"zuruzukin",1,560,1],["シンボラー",13,2,5,0,"symboler",0,561,0],["デスマス",7,-1,5,0,"desumasu",0,562,0],["デスマス（ガラルのすがた）",4,7,5,0,"desumasu",2,562,0],["デスカーン",7,-1,5,0,"desukarn",0,563,1],["プロトーガ",10,5,5,0,"protoga",0,564,0],["アバゴーラ",10,5,5,0,"abagoura",0,565,0],["アーケン",5,2,5,0,"archen",0,566,0],["アーケオス",5,2,5,0,"archeos",0,567,0],["ヤブクロン",3,-1,5,0,"yabukuron",0,568,0],["ダストダス",3,-1,5,0,"dustdas",0,569,1],["ゾロア",16,-1,5,0,"zorua",0,570,0],["ゾロア（ヒスイのすがた）",0,7,5,0,"zorua",2,570,0],["ゾロアーク",16,-1,5,0,"zoroark",0,571,1],["ゾロアーク（ヒスイのすがた）",0,7,5,0,"zoroark",2,571,1],["チラーミィ",0,-1,5,0,"chillarmy",0,572,0],["チラチーノ",0,-1,5,0,"chillaccino",0,573,0],["ゴチム",13,-1,5,0,"gothimu",0,574,0],["ゴチミル",13,-1,5,0,"gothimiru",0,575,0],["ゴチルゼル",13,-1,5,0,"gothiruselle",0,576,0],["ユニラン",13,-1,5,0,"uniran",0,577,0],["ダブラン",13,-1,5,0,"doublan",0,578,0],["ランクルス",13,-1,5,0,"lanculus",0,579,1],["コアルヒー",10,2,5,0,"koaruhie",0,580,0],["スワンナ",10,2,5,0,"swanna",0,581,0],["バニプッチ",14,-1,5,0,"vanipeti",0,582,0],["バニリッチ",14,-1,5,0,"vanirich",0,583,0],["バイバニラ",14,-1,5,0,"baivanilla",0,584,1],["シキジカ",0,11,5,0,"shikijika",0,585,0],["メブキジカ",0,11,5,0,"mebukijika",0,586,0],["エモンガ",12,2,5,0,"emolga",0,587,1],["カブルモ",6,-1,5,0,"kaburumo",0,588,0],["シュバルゴ",6,8,5,0,"chevargo",0,589,0],["タマゲタケ",11,3,5,0,"tamagetake",0,590,0],["モロバレル",11,3,5,0,"morobareru",0,591,0],["プルリル",10,7,5,0,"pururill",0,592,0],["ブルンゲル",10,7,5,0,"burungel",0,593,0],["ママンボウ",10,-1,5,0,"mamanbou",0,594,0],["バチュル",6,12,5,0,"bachuru",0,595,0],["デンチュラ",6,12,5,0,"dentula",0,596,0],["テッシード",11,8,5,0,"tesseed",0,597,0],["ナットレイ",11,8,5,0,"nutrey",0,598,0],["ギアル",8,-1,5,0,"giaru",0,599,0],["ギギアル",8,-1,5,0,"gigiaru",0,600,0],["ギギギアル",8,-1,5,0,"gigigiaru",0,601,0],["シビシラス",12,-1,5,0,"shibishirasu",0,602,0],["シビビール",12,-1,5,0,"shibibeel",0,603,0],["シビルドン",12,-1,5,0,"shibirudon",0,604,1],["メガシビルドン",12,-1,5,0,"shibirudon",1,604,1],["リグレー",13,-1,5,0,"ligray",0,605,0],["オーベム",13,-1,5,0,"ohbem",0,606,0],["ヒトモシ",7,9,5,0,"hitomoshi",0,607,0],["ランプラー",7,9,5,0,"lampler",0,608,0],["シャンデラ",7,9,5,0,"chandela",0,609,1],["メガシャンデラ",7,9,5,0,"chandela",1,609,1],["キバゴ",15,-1,5,0,"kibago",0,610,0],["オノンド",15,-1,5,0,"onondo",0,611,0],["オノノクス",15,-1,5,0,"ononokus",0,612,0],["クマシュン",14,-1,5,0,"kumasyun",0,613,0],["ツンベアー",14,-1,5,0,"tunbear",0,614,1],["フリージオ",14,-1,5,0,"freegeo",0,615,0],["チョボマキ",6,-1,5,0,"chobomaki",0,616,0],["アギルダー",6,-1,5,0,"agilder",0,617,0],["マッギョ",4,12,5,0,"maggyo",0,618,1],["マッギョ（ガラルのすがた）",4,8,5,0,"maggyo",2,618,1],["コジョフー",1,-1,5,0,"kojofu",0,619,0],["コジョンド",1,-1,5,0,"kojondo",0,620,0],["クリムガン",15,-1,5,0,"crimgan",0,621,0],["ゴビット",4,7,5,0,"gobit",0,622,0],["ゴルーグ",4,7,5,0,"goloog",0,623,1],["メガゴルーグ",4,7,5,0,"goloog",1,623,1],["コマタナ",16,8,5,0,"komatana",0,624,0],["キリキザン",16,8,5,0,"kirikizan",0,625,0],["バッフロン",0,-1,5,0,"buffron",0,626,0],["ワシボン",0,2,5,0,"washibon",0,627,0],["ウォーグル",0,2,5,0,"warrgle",0,628,0],["ウォーグル（ヒスイのすがた）",13,2,5,0,"warrgle",2,628,0],["バルチャイ",16,2,5,0,"valchai",0,629,0],["バルジーナ",16,2,5,0,"vulgina",0,630,0],["クイタラン",9,-1,5,0,"kuitaran",0,631,0],["アイアント",6,8,5,0,"aiant",0,632,0],["モノズ",16,15,5,0,"monozu",0,633,0],["ジヘッド",16,15,5,0,"dihead",0,634,0],["サザンドラ",16,15,5,0,"sazandora",0,635,1],["メラルバ",6,9,5,0,"merlarva",0,636,0],["ウルガモス",6,9,5,0,"ulgamoth",0,637,1],["コバルオン",8,1,5,1,"cobalon",0,638,0],["テラキオン",5,1,5,1,"terrakion",0,639,0],["ビリジオン",11,1,5,1,"virizion",0,640,0],["トルネロス",2,-1,5,1,"tornelos",0,641,0],["ボルトロス",12,2,5,1,"voltolos",0,642,0],["レシラム",15,9,5,1,"reshiram",0,643,0],["ゼクロム",15,12,5,1,"zekrom",0,644,0],["ランドロス",4,2,5,1,"landlos",0,645,0],["キュレム",15,14,5,1,"kyurem",0,646,0],["ケルディオ",10,1,5,1,"keldeo",0,647,0],["メロエッタ",0,13,5,1,"meloetta",0,648,0],["メロエッタ（ステップフォルム）",0,1,5,1,"meloetta",2,648,0],["ゲノセクト",6,8,5,1,"genesect",0,649,0],["ハリマロン",11,-1,6,0,"harimaron",0,650,0],["ハリボーグ",11,-1,6,0,"hariborg",0,651,0],["ブリガロン",11,1,6,0,"brigarron",0,652,1],["メガブリガロン",11,1,6,0,"brigarron",1,652,1],["フォッコ",9,-1,6,0,"fokko",0,653,0],["テールナー",9,-1,6,0,"tairenar",0,654,0],["マフォクシー",9,13,6,0,"mahoxy",0,655,1],["メガマフォクシー",9,13,6,0,"mahoxy",1,655,1],["ケロマツ",10,-1,6,0,"keromatsu",0,656,0],["ゲコガシラ",10,-1,6,0,"gekogashira",0,657,0],["ゲッコウガ",10,16,6,0,"gekkouga",0,658,1],["メガゲッコウガ",10,16,6,0,"gekkouga",1,658,1],["ホルビー",0,-1,6,0,"horubee",0,659,0],["ホルード",0,4,6,0,"horudo",0,660,1],["ヤヤコマ",0,2,6,0,"yayakoma",0,661,0],["ヒノヤコマ",9,2,6,0,"hinoyakoma",0,662,0],["ファイアロー",9,2,6,0,"fiarrow",0,663,1],["コフキムシ",6,-1,6,0,"kofukimushi",0,664,0],["コフーライ",6,-1,6,0,"kofuurai",0,665,0],["ビビヨン",6,2,6,0,"viviyon",0,666,1],["シシコ",9,0,6,0,"shishiko",0,667,0],["カエンジシ",9,0,6,0,"kaenjishi",0,668,1],["メガカエンジシ",9,0,6,0,"kaenjishi",1,668,1],["フラベベ",17,-1,6,0,"flabebe",0,669,0],["フラエッテ",17,-1,6,0,"floette",0,670,1],["メガフラエッテ",17,-1,6,0,"floette",1,670,1],["フラージェス",17,-1,6,0,"florges",0,671,1],["メェークル",11,-1,6,0,"meecle",0,672,0],["ゴーゴート",11,-1,6,0,"gogoat",0,673,1],["ヤンチャム",1,-1,6,0,"yancham",0,674,0],["ゴロンダ",1,16,6,0,"goronda",0,675,1],["トリミアン",0,-1,6,0,"trimmien",0,676,1],["ニャスパー",13,-1,6,0,"nyasper",0,677,0],["ニャオニクス",13,-1,6,0,"nyaonix",0,678,1],["メガニャオニクス",13,-1,6,0,"nyaonix",1,678,1],["ヒトツキ",8,7,6,0,"hitotsuki",0,679,0],["ニダンギル",8,7,6,0,"nidangill",0,680,0],["ギルガルド",8,7,6,0,"gillgard",0,681,1],["シュシュプ",17,-1,6,0,"shushupu",0,682,0],["フレフワン",17,-1,6,0,"frefuwan",0,683,1],["ペロッパフ",17,-1,6,0,"peroppafu",0,684,0],["ペロリーム",17,-1,6,0,"peroream",0,685,1],["マーイーカ",16,13,6,0,"maaiika",0,686,0],["カラマネロ",16,13,6,0,"calamanero",0,687,1],["メガカラマネロ",16,13,6,0,"calamanero",1,687,1],["カメテテ",5,10,6,0,"kametete",0,688,0],["ガメノデス",5,10,6,0,"gamenodes",0,689,1],["メガガメノデス",5,1,6,0,"gamenodes",1,689,1],["クズモー",3,10,6,0,"kuzumo",0,690,0],["ドラミドロ",3,15,6,0,"dramidoro",0,691,1],["メガドラミドロ",3,15,6,0,"dramidoro",1,691,1],["ウデッポウ",10,-1,6,0,"udeppou",0,692,0],["ブロスター",10,-1,6,0,"bloster",0,693,1],["エリキテル",12,0,6,0,"erikiteru",0,694,0],["エレザード",12,0,6,0,"elezard",0,695,1],["チゴラス",5,15,6,0,"chigoras",0,696,0],["ガチゴラス",5,15,6,0,"gachigoras",0,697,1],["アマルス",5,14,6,0,"amarus",0,698,0],["アマルルガ",5,14,6,0,"amaruruga",0,699,1],["ニンフィア",17,-1,6,0,"nymphia",0,700,1],["メガルチャブル",1,2,6,0,"luchabull",1,701,1],["ルチャブル",1,2,6,0,"luchabull",0,701,1],["デデンネ",12,17,6,0,"dedenne",0,702,1],["メレシー",5,17,6,0,"melecie",0,703,0],["ヌメラ",15,-1,6,0,"numera",0,704,0],["ヌメイル",15,-1,6,0,"numeil",0,705,0],["ヌメイル（ヒスイのすがた）",8,15,6,0,"numeil",2,705,0],["ヌメルゴン",15,-1,6,0,"numelgon",0,706,1],["ヌメルゴン（ヒスイのすがた）",8,15,6,0,"numelgon",2,706,1],["クレッフィ",8,17,6,0,"cleffy",0,707,1],["ボクレー",7,11,6,0,"bokurei",0,708,0],["オーロット",7,11,6,0,"ohrot",0,709,1],["バケッチャ",7,11,6,0,"bakeccha",0,710,0],["パンプジン",7,11,6,0,"pumpjin",0,711,1],["カチコール",14,-1,6,0,"kachikohru",0,712,0],["クレベース",14,-1,6,0,"crebase",0,713,1],["クレベース（ヒスイのすがた）",14,5,6,0,"crebase",2,713,1],["オンバット",2,15,6,0,"onbat",0,714,0],["オンバーン",2,15,6,0,"onvern",0,715,1],["ゼルネアス",17,-1,6,1,"xerneas",0,716,0],["イベルタル",16,2,6,1,"yveltal",0,717,0],["ジガルデ",15,4,6,1,"zygarde",0,718,0],["メガジガルデ",15,4,6,1,"zygarde",1,718,0],["ディアンシー",5,17,6,1,"diancie",0,719,0],["メガディアンシー",5,17,6,1,"diancie",1,719,0],["フーパ",13,7,6,1,"hoopa",0,720,0],["フーパ（ときはなたれしフーパ）",13,16,6,1,"hoopa",2,720,0],["ボルケニオン",9,10,6,1,"volcanion",0,721,0],["モクロー",11,2,7,0,"mokuroh",0,722,0],["フクスロー",11,2,7,0,"fukuthrow",0,723,0],["ジュナイパー",11,7,7,0,"junaiper",0,724,1],["ジュナイパー（ヒスイのすがた）",11,1,7,0,"junaiper",2,724,1],["ニャビー",9,-1,7,0,"nyabby",0,725,0],["ニャヒート",9,-1,7,0,"nyaheat",0,726,0],["ガオガエン",9,16,7,0,"gaogaen",0,727,1],["アシマリ",10,-1,7,0,"ashimari",0,728,0],["オシャマリ",10,-1,7,0,"osyamari",0,729,0],["アシレーヌ",10,17,7,0,"ashirene",0,730,1],["ツツケラ",0,2,7,0,"tsutsukera",0,731,0],["ケララッパ",0,2,7,0,"kerarappa",0,732,0],["ドデカバシ",0,2,7,0,"dodekabashi",0,733,1],["ヤングース",0,-1,7,0,"youngoose",0,734,0],["デカグース",0,-1,7,0,"dekagoose",0,735,0],["アゴジムシ",6,-1,7,0,"agojimushi",0,736,0],["デンヂムシ",6,12,7,0,"dendimushi",0,737,0],["クワガノン",6,12,7,0,"kuwagannon",0,738,0],["マケンカニ",1,-1,7,0,"makenkani",0,739,0],["ケケンカニ",1,14,7,0,"kekenkani",0,740,1],["メガケケンカニ",1,14,7,0,"kekenkani",1,740,1],["オドリドリ",9,2,7,0,"odoridori",0,741,0],["オドリドリ（ぱちぱちスタイル）",12,2,7,0,"odoridori",2,741,0],["オドリドリ（ふらふらスタイル）",13,2,7,0,"odoridori",2,741,0],["オドリドリ（まいまいスタイル）",7,2,7,0,"odoridori",2,741,0],["アブリー",6,17,7,0,"abuly",0,742,0],["アブリボン",6,17,7,0,"aburibbon",0,743,0],["イワンコ",5,-1,7,0,"iwanko",0,744,0],["ルガルガン",5,-1,7,0,"lugarugan",0,745,1],["ヨワシ",10,-1,7,0,"yowashi",0,746,0],["ヒドイデ",3,10,7,0,"hidoide",0,747,0],["ドヒドイデ",3,10,7,0,"dohidoide",0,748,1],["ドロバンコ",4,-1,7,0,"dorobanko",0,749,0],["バンバドロ",4,-1,7,0,"banbadoro",0,750,1],["シズクモ",10,6,7,0,"shizukumo",0,751,0],["オニシズクモ",10,6,7,0,"onishizukumo",0,752,1],["カリキリ",11,-1,7,0,"karikiri",0,753,0],["ラランテス",11,-1,7,0,"lalantes",0,754,0],["ネマシュ",11,17,7,0,"nemasyu",0,755,0],["マシェード",11,17,7,0,"mashade",0,756,0],["ヤトウモリ",3,9,7,0,"yatoumori",0,757,0],["エンニュート",3,9,7,0,"ennewt",0,758,1],["ヌイコグマ",0,1,7,0,"nuikoguma",0,759,0],["キテルグマ",0,1,7,0,"kiteruguma",0,760,0],["アマカジ",11,-1,7,0,"amakaji",0,761,0],["アママイコ",11,-1,7,0,"amamaiko",0,762,0],["アマージョ",11,-1,7,0,"amajo",0,763,1],["キュワワー",17,-1,7,0,"cuwawa",0,764,0],["ヤレユータン",0,13,7,0,"yareyuutan",0,765,1],["ナゲツケサル",1,-1,7,0,"nagetukesaru",0,766,1],["コソクムシ",6,10,7,0,"kosokumushi",0,767,0],["グソクムシャ",6,10,7,0,"gusokumusha",0,768,1],["メガグソクムシャ",6,8,7,0,"gusokumusha",1,768,1],["スナバァ",7,4,7,0,"sunaba",0,769,0],["シロデスナ",7,4,7,0,"sirodethna",0,770,0],["ナマコブシ",10,-1,7,0,"namakobushi",0,771,0],["タイプ：ヌル",0,-1,7,1,"type:null",0,772,0],["シルヴァディ",0,-1,7,1,"silvady",0,773,0],["メテノ",5,2,7,0,"meteno",0,774,0],["ネッコアラ",0,-1,7,0,"nekkoara",0,775,0],["バクガメス",9,15,7,0,"bakugames",0,776,0],["トゲデマル",12,8,7,0,"togedemaru",0,777,0],["ミミッキュ",7,17,7,0,"mimikkyu",0,778,1],["ハギギシリ",10,13,7,0,"hagigishiri",0,779,0],["ジジーロン",0,15,7,0,"jijilong",0,780,1],["メガジジーロン",0,15,7,0,"jijilong",1,780,1],["ダダリン",7,11,7,0,"dadarin",0,781,0],["ジャラコ",15,-1,7,0,"jyarako",0,782,0],["ジャランゴ",15,1,7,0,"jyarango",0,783,0],["ジャラランガ",15,1,7,0,"jyararanga",0,784,1],["カプ・コケコ",12,17,7,1,"kapu-kokeko",0,785,0],["カプ・テテフ",13,17,7,1,"kapu-tetefu",0,786,0],["カプ・ブルル",11,17,7,1,"kapu-bulul",0,787,0],["カプ・レヒレ",10,17,7,1,"kapu-rehire",0,788,0],["コスモッグ",13,-1,7,1,"cosmog",0,789,0],["コスモウム",13,-1,7,1,"cosmovum",0,790,0],["ソルガレオ",13,8,7,1,"solgaleo",0,791,0],["ルナアーラ",13,7,7,1,"lunala",0,792,0],["ウツロイド",5,3,7,0,"uturoid",0,793,0],["マッシブーン",6,1,7,0,"massivoon",0,794,0],["フェローチェ",6,1,7,0,"pheroache",0,795,0],["デンジュモク",12,-1,7,0,"denjyumoku",0,796,0],["テッカグヤ",8,2,7,0,"tekkaguya",0,797,0],["カミツルギ",11,8,7,0,"kamiturugi",0,798,0],["アクジキング",16,15,7,0,"akuziking",0,799,0],["ネクロズマ",13,-1,7,1,"necrozma",0,800,0],["ネクロズマ（あかつきのつばさ）",13,7,7,1,"necrozma",2,800,0],["ネクロズマ（ウルトラネクロズマ）",13,15,7,1,"necrozma",2,800,0],["ネクロズマ（たそがれのたてがみ）",13,8,7,1,"necrozma",2,800,0],["マギアナ",8,17,7,1,"magearna",0,801,0],["メガマギアナ",8,17,7,1,"magearna",1,801,0],["マーシャドー",1,7,7,1,"marshadow",0,802,0],["ベベノム",3,-1,7,0,"bevenom",0,803,0],["アーゴヨン",3,15,7,0,"agoyon",0,804,0],["ツンデツンデ",5,8,7,0,"tundetunde",0,805,0],["ズガドーン",9,7,7,0,"zugadoon",0,806,0],["ゼラオラ",12,-1,7,1,"zeraora",0,807,0],["メガゼラオラ",12,-1,7,1,"zeraora",1,807,0],["メルタン",8,-1,7,1,"meltan",0,808,0],["メルメタル",8,-1,7,1,"melmetal",0,809,0],["サルノリ",11,-1,8,0,"sarunori",0,810,0],["バチンキー",11,-1,8,0,"bachinkey",0,811,0],["ゴリランダー",11,-1,8,0,"gorirander",0,812,1],["ヒバニー",9,-1,8,0,"hibanny",0,813,0],["ラビフット",9,-1,8,0,"rabbifuto",0,814,0],["エースバーン",9,-1,8,0,"aceburn",0,815,1],["メッソン",10,-1,8,0,"messon",0,816,0],["ジメレオン",10,-1,8,0,"jimereon",0,817,0],["インテレオン",10,-1,8,0,"intereon",0,818,1],["ホシガリス",0,-1,8,0,"hoshigarisu",0,819,0],["ヨクバリス",0,-1,8,0,"yokubarisu",0,820,0],["ココガラ",2,-1,8,0,"kokogara",0,821,0],["アオガラス",2,-1,8,0,"aogarasu",0,822,0],["アーマーガア",2,8,8,0,"armorga",0,823,1],["サッチムシ",6,-1,8,0,"sacchimushi",0,824,0],["レドームシ",6,13,8,0,"redomushi",0,825,0],["イオルブ",6,13,8,0,"eolb",0,826,0],["クスネ",16,-1,8,0,"kusune",0,827,0],["フォクスライ",16,-1,8,0,"foxly",0,828,1],["ヒメンカ",11,-1,8,0,"himenka",0,829,0],["ワタシラガ",11,-1,8,0,"watashiraga",0,830,0],["ウールー",0,-1,8,0,"wooluu",0,831,0],["バイウールー",0,-1,8,0,"baiwooluu",0,832,0],["カムカメ",10,-1,8,0,"kamukame",0,833,0],["カジリガメ",10,5,8,0,"kajirigame",0,834,0],["ワンパチ",12,-1,8,0,"wanpachi",0,835,0],["パルスワン",12,-1,8,0,"pulsewan",0,836,0],["タンドン",5,-1,8,0,"tandon",0,837,0],["トロッゴン",5,9,8,0,"toroggon",0,838,0],["セキタンザン",5,9,8,0,"sekitanzan",0,839,0],["カジッチュ",11,15,8,0,"kajicchu",0,840,0],["アップリュー",11,15,8,0,"appryu",0,841,1],["タルップル",11,15,8,0,"tarupple",0,842,1],["スナヘビ",4,-1,8,0,"sunahebi",0,843,0],["サダイジャ",4,-1,8,0,"sadaija",0,844,1],["ウッウ",2,10,8,0,"uu",0,845,0],["サシカマス",10,-1,8,0,"sasikamasu",0,846,0],["カマスジョー",10,-1,8,0,"kamasujaw",0,847,0],["エレズン",12,3,8,0,"eleson",0,848,0],["ストリンダー",12,3,8,0,"strinder",0,849,1],["ヤクデ",9,6,8,0,"yakude",0,850,0],["マルヤクデ",9,6,8,0,"maruyakude",0,851,0],["タタッコ",1,-1,8,0,"tatakko",0,852,0],["オトスパス",1,-1,8,0,"otosupus",0,853,1],["ヤバチャ",7,-1,8,0,"yabacha",0,854,0],["ポットデス",7,-1,8,0,"potdeath",0,855,1],["ミブリム",13,-1,8,0,"mibrim",0,856,0],["テブリム",13,-1,8,0,"tebrim",0,857,0],["ブリムオン",13,17,8,0,"brimuon",0,858,1],["ベロバー",16,17,8,0,"beroba",0,859,0],["ギモー",16,17,8,0,"gimoh",0,860,0],["オーロンゲ",16,17,8,0,"ohlonge",0,861,1],["タチフサグマ",16,0,8,0,"tachifusaguma",0,862,0],["ニャイキング",8,-1,8,0,"nyaiking",0,863,1],["サニゴーン",7,-1,8,0,"sunigoon",0,864,0],["ネギガナイト",1,-1,8,0,"negigaknight",0,865,1],["バリコオル",14,13,8,0,"barrikohru",0,866,1],["デスバーン",4,7,8,0,"deathbarn",0,867,1],["マホミル",17,-1,8,0,"mahomil",0,868,0],["マホイップ",17,-1,8,0,"mawhip",0,869,1],["タイレーツ",1,-1,8,0,"tairetsu",0,870,1],["メガタイレーツ",1,-1,8,0,"tairetsu",1,870,1],["バチンウニ",12,-1,8,0,"bachinuni",0,871,1],["ユキハミ",14,6,8,0,"yukihami",0,872,0],["モスノウ",14,6,8,0,"mothnow",0,873,0],["イシヘンジン",5,-1,8,0,"ishihengin",0,874,0],["コオリッポ",14,-1,8,0,"korippo",0,875,0],["イエッサン",13,0,8,0,"yessan",0,876,1],["モルペコ",12,16,8,0,"morpeko",0,877,1],["ゾウドウ",8,-1,8,0,"zoudou",0,878,0],["ダイオウドウ",8,-1,8,0,"daioudou",0,879,0],["パッチラゴン",12,15,8,0,"patchiragon",0,880,0],["パッチルドン",12,14,8,0,"patchilldon",0,881,0],["ウオノラゴン",10,15,8,0,"uonoragon",0,882,0],["ウオチルドン",10,14,8,0,"uochilldon",0,883,0],["ジュラルドン",8,15,8,0,"duraludon",0,884,0],["ドラメシヤ",15,7,8,0,"dorameshiya",0,885,0],["ドロンチ",15,7,8,0,"doronch",0,886,0],["ドラパルト",15,7,8,0,"dorapult",0,887,1],["ザシアン",17,-1,8,1,"zacian",0,888,0],["ザシアン（けんのおう）",17,8,8,1,"zacian",2,888,0],["ザマゼンタ",1,-1,8,1,"zamazenta",0,889,0],["ザマゼンタ（たてのおう）",1,8,8,1,"zamazenta",2,889,0],["ムゲンダイナ",3,15,8,1,"mugendina",0,890,0],["ダクマ",1,-1,8,1,"dakuma",0,891,0],["ウーラオス",1,16,8,1,"wulaosu",0,892,0],["ウーラオス（れんげきのかた・キョダイマックスのすがた）",1,10,8,1,"wulaosu",2,892,0],["ウーラオス（れんげきのかた）",1,10,8,1,"wulaosu",2,892,0],["ザルード",16,11,8,1,"zarude",0,893,0],["レジエレキ",12,-1,8,1,"regieleki",0,894,0],["レジドラゴ",15,-1,8,1,"regidorago",0,895,0],["ブリザポス",14,-1,8,1,"blizzapos",0,896,0],["レイスポス",7,-1,8,1,"wraithpos",0,897,0],["バドレックス",13,11,8,1,"budrex",0,898,0],["バドレックス（こくばじょうのすがた）",13,7,8,1,"budrex",2,898,0],["バドレックス（はくばじょうのすがた）",13,14,8,1,"budrex",2,898,0],["アヤシシ",0,13,8,0,"ayashishi",0,899,1],["バサギリ",6,5,8,0,"basagiri",0,900,1],["ガチグマ",4,0,8,0,"gachiguma",0,901,0],["イダイトウ",10,7,8,0,"idaitou",0,902,1],["オオニューラ",1,3,8,0,"ohnyula",0,903,1],["ハリーマン",16,3,8,0,"haryman",0,904,1],["ラブトロス",17,2,8,1,"lovetolos",0,905,0],["ニャオハ",11,-1,9,0,"nyahoja",0,906,0],["ニャローテ",11,-1,9,0,"nyarote",0,907,0],["マスカーニャ",11,16,9,0,"masquernya",0,908,1],["ホゲータ",9,-1,9,0,"hogator",0,909,0],["アチゲータ",9,-1,9,0,"achigator",0,910,0],["ラウドボーン",9,7,9,0,"laudbon",0,911,1],["クワッス",10,-1,9,0,"kuwassu",0,912,0],["ウェルカモ",10,-1,9,0,"welkamo",0,913,0],["ウェーニバル",10,1,9,0,"wanival",0,914,1],["グルトン",0,-1,9,0,"gourton",0,915,0],["パフュートン",0,-1,9,0,"perfuton",0,916,0],["タマンチュラ",6,-1,9,0,"tamantula",0,917,0],["ワナイダー",6,-1,9,0,"wanaider",0,918,0],["マメバッタ",6,-1,9,0,"mamebatta",0,919,0],["エクスレッグ",6,16,9,0,"exleg",0,920,0],["パモ",12,-1,9,0,"pamo",0,921,0],["パモット",12,1,9,0,"pamot",0,922,0],["パーモット",12,1,9,0,"parmot",0,923,1],["ワッカネズミ",0,-1,9,0,"wakkanezumi",0,924,0],["イッカネズミ",0,-1,9,0,"ikkanezumi",0,925,1],["パピモッチ",17,-1,9,0,"pupimocchi",0,926,0],["バウッツェル",17,-1,9,0,"bowtzel",0,927,0],["ミニーブ",11,0,9,0,"minive",0,928,0],["オリーニョ",11,0,9,0,"olinyo",0,929,0],["オリーヴァ",11,0,9,0,"oliva",0,930,1],["イキリンコ",0,2,9,0,"ikirinko",0,931,1],["コジオ",5,-1,9,0,"kojio",0,932,0],["ジオヅム",5,-1,9,0,"jiodumu",0,933,0],["キョジオーン",5,-1,9,0,"kyojiohn",0,934,1],["カルボウ",9,-1,9,0,"carbou",0,935,0],["グレンアルマ",9,13,9,0,"gurenarma",0,936,1],["ソウブレイズ",9,7,9,0,"soublades",0,937,1],["ズピカ",12,-1,9,0,"zupika",0,938,0],["ハラバリー",12,-1,9,0,"harabarie",0,939,1],["カイデン",12,2,9,0,"kaiden",0,940,0],["タイカイデン",12,2,9,0,"taikaiden",0,941,0],["オラチフ",16,-1,9,0,"orachifu",0,942,0],["マフィティフ",16,-1,9,0,"mafitiff",0,943,1],["シルシュルー",3,0,9,0,"shirushrew",0,944,0],["タギングル",3,0,9,0,"taggingru",0,945,0],["アノクサ",11,7,9,0,"anokusa",0,946,0],["アノホラグサ",11,7,9,0,"anohoragusa",0,947,0],["ノノクラゲ",4,11,9,0,"nonokurage",0,948,0],["リククラゲ",4,11,9,0,"rikukurage",0,949,0],["ガケガニ",5,-1,9,0,"gakegani",0,950,0],["カプサイジ",11,-1,9,0,"capsaiji",0,951,0],["スコヴィラン",11,9,9,0,"scovillain",0,952,1],["メガスコヴィラン",11,9,9,0,"scovillain",1,952,1],["シガロコ",6,-1,9,0,"shigaroko",0,953,0],["ベラカス",6,13,9,0,"beracas",0,954,0],["ヒラヒナ",13,-1,9,0,"hirahina",0,955,0],["クエスパトラ",13,-1,9,0,"cuespatra",0,956,1],["カヌチャン",17,8,9,0,"kanuchan",0,957,0],["ナカヌチャン",17,8,9,0,"nakanuchan",0,958,0],["デカヌチャン",17,8,9,0,"dekanuchan",0,959,1],["ウミディグダ",10,-1,9,0,"umidigda",0,960,0],["ウミトリオ",10,-1,9,0,"umitrio",0,961,0],["オトシドリ",2,16,9,0,"otoshidori",0,962,0],["ナミイルカ",10,-1,9,0,"namiiruka",0,963,0],["イルカマン",10,-1,9,0,"irukaman",0,964,1],["ブロロン",8,3,9,0,"buroron",0,965,0],["ブロロローム",8,3,9,0,"burororoom",0,966,0],["モトトカゲ",15,0,9,0,"mototokage",0,967,0],["ミミズズ",8,-1,9,0,"mimizuzu",0,968,1],["キラーメ",5,3,9,0,"kirame",0,969,0],["キラフロル",5,3,9,0,"kiraflor",0,970,1],["メガキラフロル",5,3,9,0,"kiraflor",1,970,1],["ボチ",7,-1,9,0,"bochi",0,971,0],["ハカドッグ",7,-1,9,0,"hakadog",0,972,1],["カラミンゴ",2,1,9,0,"karamingo",0,973,0],["アルクジラ",14,-1,9,0,"arukujira",0,974,0],["ハルクジラ",14,-1,9,0,"hulkujira",0,975,0],["ミガルーサ",10,13,9,0,"migalusa",0,976,0],["ヘイラッシャ",10,-1,9,0,"heyrusher",0,977,0],["シャリタツ",15,10,9,0,"syaritatsu",0,978,0],["メガシャリタツ",15,10,9,0,"syaritatsu",1,978,0],["コノヨザル",1,7,9,0,"konoyozaru",0,979,1],["ドオー",3,4,9,0,"dooh",0,980,0],["リキキリン",0,13,9,0,"rikikirin",0,981,1],["ノココッチ",0,-1,9,0,"nokokocchi",0,982,0],["ドドゲザン",16,8,9,0,"dodogezan",0,983,1],["イダイナキバ",4,1,9,0,"idainakiba",0,984,0],["サケブシッポ",17,13,9,0,"sakebushippo",0,985,0],["アラブルタケ",11,16,9,0,"araburutake",0,986,0],["ハバタクカミ",7,17,9,0,"habatakukami",0,987,0],["チヲハウハネ",6,1,9,0,"chiwohauhane",0,988,0],["スナノケガワ",12,4,9,0,"sunanokegawa",0,989,0],["テツノワダチ",4,8,9,0,"tetsunowadachi",0,990,0],["テツノツツミ",14,10,9,0,"tetsunotsutsumi",0,991,0],["テツノカイナ",1,12,9,0,"tetsunokaina",0,992,0],["テツノコウベ",16,2,9,0,"tetsunokoube",0,993,0],["テツノドクガ",9,3,9,0,"tetsunodokuga",0,994,0],["テツノイバラ",5,12,9,0,"tetsunoibara",0,995,0],["セビエ",15,14,9,0,"sebie",0,996,0],["セゴール",15,14,9,0,"segohru",0,997,0],["セグレイブ",15,14,9,0,"seglaive",0,998,1],["メガセグレイブ",15,14,9,0,"seglaive",1,998,1],["コレクレー",7,-1,9,0,"collecurei",0,999,0],["サーフゴー",8,7,9,0,"surfugo",0,1000,1],["チオンジェン",16,11,9,1,"chionjen",0,1001,0],["パオジアン",16,14,9,1,"paojian",0,1002,0],["ディンルー",16,4,9,1,"dinlu",0,1003,0],["イーユイ",16,9,9,1,"yiyui",0,1004,0],["トドロクツキ",15,16,9,0,"todorokutsuki",0,1005,0],["テツノブジン",17,1,9,0,"tetsunobujin",0,1006,0],["コライドン",1,15,9,1,"koraidon",0,1007,0],["ミライドン",12,15,9,1,"miraidon",0,1008,0],["ウネルミナモ",10,15,9,0,"uneruminamo",0,1009,0],["テツノイサハ",11,13,9,0,"tetsunoisaha",0,1010,0],["カミッチュ",11,15,9,0,"kamicchu",0,1011,0],["チャデス",11,7,9,0,"chadeath",0,1012,0],["ヤバソチャ",11,7,9,0,"yabasocha",0,1013,1],["イイネイヌ",3,1,9,1,"iineinu",0,1014,0],["マシマシラ",3,13,9,1,"mashimashira",0,1015,0],["キチキギス",3,17,9,1,"kichikigisu",0,1016,0],["オーガポン",11,-1,9,1,"ogerpon",0,1017,0],["オーガポン（いしずえのめん）",11,5,9,1,"ogerpon",2,1017,0],["オーガポン（いどのめん）",11,10,9,1,"ogerpon",2,1017,0],["オーガポン（かまどのめん）",11,9,9,1,"ogerpon",2,1017,0],["ブリジュラス",8,15,9,0,"briduras",0,1018,1],["カミツオロチ",11,15,9,0,"kamitsuorochi",0,1019,1],["ウガツホムラ",9,15,9,0,"ugatsuhomura",0,1020,0],["タケルライコ",12,15,9,0,"takeruraiko",0,1021,0],["テツノイワオ",5,13,9,0,"tetsunoiwao",0,1022,0],["テツノカシラ",8,13,9,0,"tetsunokashira",0,1023,0],["テラパゴス",0,-1,9,1,"terapagos",0,1024,0],["モモワロウ",3,7,9,1,"momowarou",0,1025,0]],"regulation":{"id":"M-C","label":"レギュレーション M-C","game":"Pokémon Champions","start":"2026-09-09","end":"2026-12-02","rules":{"format":"doubles","teamMin":4,"teamMax":6,"bring":4,"level":50,"speciesClause":true,"itemClause":true,"restrictedMax":0},"megaRule":"learnset-with-overrides","sources":["https://www.serebii.net/pokemonchampions/rankedbattle/regulationm-c.shtml","https://victoryroad.pro/champions-regulations/"],"overrides":["absol-mega-z","garchomp-mega-z","lucario-mega-z"],"pokedexId":36,"species":[3,6,9,15,18,24,25,26,36,38,40,45,53,59,65,68,71,80,83,94,115,121,122,127,128,130,132,134,135,136,142,143,149,154,157,160,168,181,184,186,196,197,199,205,208,211,212,214,227,229,248,254,257,260,279,282,302,303,306,308,310,317,319,323,324,334,350,351,354,358,359,362,373,376,389,392,395,398,405,407,409,411,428,442,445,448,450,454,460,461,464,470,471,472,473,475,478,479,497,500,503,505,510,512,514,516,518,530,531,534,545,547,553,560,563,569,571,579,584,587,604,609,614,618,623,635,637,652,655,658,660,663,666,668,670,671,673,675,676,678,681,683,685,687,689,691,693,695,697,699,700,701,702,706,707,709,711,713,715,724,727,730,733,740,745,748,750,752,758,763,765,766,768,778,780,784,812,815,818,823,828,841,842,844,849,853,855,858,861,863,865,866,867,869,870,871,876,877,887,899,900,902,903,904,908,911,914,923,925,930,931,934,936,937,939,943,952,956,959,964,968,970,972,979,981,983,998,1000,1013,1018,1019],"legalCount":338,"laggingSpecies":23,"builtAt":"2026-09-17"}};
+
+/* === 1. データ層 ========================================================= */
+
+const TYPES = DATA.types;   // [{id, ja, en}] × 18
+const CHART = DATA.chart;   // CHART[攻撃index][防御index] = 0 | 0.5 | 1 | 2
+const NT    = TYPES.length;
+
+/** 検索キーの正規化。NFKC で「メガリザードンＸ」の全角Ｘを半角に寄せる。 */
+const norm = s => s.normalize("NFKC").toLowerCase();
+
+const KIND_LABEL = { 1: "メガ", 2: "フォルム" };   // 0 は原種（バッジなし）
+
+const REG = DATA.regulation;          // 現行レギュレーション（ビルド時に解決済み）
+const POOL = new Set(REG.species);    // 使用可能な species id
+
+const POKEMON = DATA.pokemon.map(([name, t1, t2, gen, legend, roma, kind, sid, legal], i) => ({
+  i, name, gen, kind,
+  sid,                                // species id。同族判定に使う
+  legal: legal === 1,                 // レギュ使用可。ビルド時にフォルム単位で判定済み
+  legend: legend === 1,
+  types: t2 < 0 ? [t1] : [t1, t2],
+  key: norm(name + " " + roma),
+}));
+
+// タイプの表示色。ページのクロームは無彩色に寄せてあるので、彩度はここ（＝データ）にしか出さない。
+const TYPE_COLOR = ["#9099a1","#ce4069","#8fa8dd","#ab6ac8","#d97845","#c7b78b",
+                    "#90c12c","#5269ac","#5a8ea1","#ff9d55","#4d90d5","#63bb5b",
+                    "#f3d23b","#fa7179","#74cec0","#0c69c8","#5a5366","#ec8fe6"];
+
+/** 背景色に対して黒字か白字かを相対輝度（WCAG の式）から決める */
+function readableInk(hex) {
+  const c = [1, 3, 5].map(o => {
+    const v = parseInt(hex.slice(o, o + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  const L = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  return L > 0.42 ? "#16201d" : "#ffffff";
+}
+const TYPE_INK = TYPE_COLOR.map(readableInk);
+
+/** タイプ構成の正規化キー。"11" や "3-11" */
+function typeKey(ts) { return [...ts].sort((a, b) => a - b).join("-"); }
+
+// 型キー → その型を持つ実在ポケモン。提案の裏取りに使う。
+const BY_KEY = new Map();
+for (const p of POKEMON) {
+  const k = typeKey(p.types);
+  if (!BY_KEY.has(k)) BY_KEY.set(k, []);
+  BY_KEY.get(k).push(p);
+}
+
+/* === 2. 相性計算（純粋関数） ============================================= */
+
+/** 防御タイプ defTypes が、攻撃タイプ atk から受ける倍率。複合は積。 */
+function multiplier(atk, defTypes) {
+  let m = 1;
+  for (let i = 0; i < defTypes.length; i++) m *= CHART[atk][defTypes[i]];
+  return m;
+}
+
+/** 倍率 → 耐性の価値。log2 なので ×2 が -1、×½ が +1 と対称になる。無効だけ別枠で +3。 */
+function resistValue(m) { return m === 0 ? 3 : -Math.log2(m); }
+
+/**
+ * 1タイプ分の判定ルール（行列の凡例と一致させること）
+ *   危険 … 弱点2体以上、かつ半減できる味方が1体以下（誰も安全に受けられない）
+ *   注意 … 弱点の数が受け皿の数を上回っている
+ *   手薄 … 弱点はないが、半減できる味方も1体もいない
+ *   安定 … それ以外
+ */
+function judge(weak, res) {
+  if (weak >= 2 && res <= 1) return "danger";
+  if (weak > res)            return "caution";
+  if (res === 0)             return "thin";
+  return "safe";
+}
+
+const LEVEL_JA = { danger: "危険", caution: "注意", thin: "手薄", safe: "安定" };
+const ORDER    = { danger: 3, caution: 2, thin: 1, safe: 0 };
+
+const MUL_CLASS = new Map([[4, "m-x4"], [2, "m-x2"], [1, "m-x1"], [0.5, "m-h"], [0.25, "m-q"], [0, "m-x0"]]);
+const MUL_TEXT  = new Map([[4, "4"], [2, "2"], [1, "·"], [0.5, "½"], [0.25, "¼"], [0, "0"]]);
+
+/* === 3. パーティ分析 ===================================================== */
+
+/** 集計だけを返す軽量版。補完探索で千回以上まわすので中間オブジェクトを作らない。 */
+function summarize(party) {
+  let danger = 0, caution = 0, thin = 0, score = 0;
+  for (let t = 0; t < NT; t++) {
+    let weak = 0, res = 0;
+    for (let k = 0; k < party.length; k++) {
+      const m = multiplier(t, party[k].types);
+      if (m >= 2) weak++; else if (m <= 0.5) res++;
+      score += resistValue(m);
+    }
+    const lv = judge(weak, res);
+    if (lv === "danger") danger++; else if (lv === "caution") caution++; else if (lv === "thin") thin++;
+  }
+  return { danger, caution, thin, score };
+}
+
+/** 表示用のフル分析。18行ぶんの明細つき。 */
+function analyze(party) {
+  const rows = TYPES.map((ty, t) => {
+    const mults = party.map(m => multiplier(t, m.types));
+    const weak  = mults.filter(m => m >= 2).length;
+    const res   = mults.filter(m => m <= 0.5).length;
+    return {
+      t, ja: ty.ja, mults, weak, res,
+      level: judge(weak, res),
+      worst: mults.length ? Math.max(...mults) : 1,
+    };
+  });
+  return { rows, ...summarize(party), offense: offense(party) };
+}
+
+/** 攻撃側の網羅度。各メンバーが自分のタイプで殴る（＝タイプ一致技）と仮定。 */
+function offense(party) {
+  const atk = [...new Set(party.flatMap(m => m.types))];
+  if (!atk.length) {
+    return { atk, uncovered: TYPES.map((_, i) => i), comboHit: 0, comboTotal: 171 };
+  }
+  const best = defTypes => Math.max(...atk.map(a => multiplier(a, defTypes)));
+
+  const uncovered = [];
+  for (let d = 0; d < NT; d++) if (best([d]) < 2) uncovered.push(d);
+
+  // 単タイプ18 + 複合153 = 171型すべてに対して抜群が取れるか
+  let hit = 0, total = 0;
+  for (let i = 0; i < NT; i++) {
+    for (let j = i; j < NT; j++) {
+      total++;
+      if (best(i === j ? [i] : [i, j]) >= 2) hit++;
+    }
+  }
+  return { atk, uncovered, comboHit: hit, comboTotal: total };
+}
+
+/* === 4. 補完探索 ========================================================= */
+
+/** 候補となる171型（単タイプ18 + 複合153） */
+const CANDIDATES = (() => {
+  const out = [];
+  for (let i = 0; i < NT; i++) { out.push([i]); for (let j = i + 1; j < NT; j++) out.push([i, j]); }
+  return out;
+})();
+
+/** 良さの序列。危険→注意→手薄の順に減らし、同点ならスコアが高いほう。 */
+function rankKey(s) { return [s.danger, s.caution, s.thin, -s.score]; }
+function cmpKey(a, b) { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; }
+
+/**
+ * 追加（空きがあるとき）または入れ替え（6体のとき）の最善手を探す。
+ * 計算量: 追加 = 171通り、入れ替え = 6 × 171 = 1026通り。どちらも 1 フレームで終わる。
+ */
+function suggest(party, base) {
+  if (!party.length) return [];
+  const out = [];
+
+  if (party.length < 6) {
+    for (const c of CANDIDATES) out.push({ mode: "add", types: c, s: summarize([...party, { types: c }]) });
+  } else {
+    const next = party.slice();
+    for (let slot = 0; slot < party.length; slot++) {
+      const keep = next[slot];
+      for (const c of CANDIDATES) {
+        next[slot] = { types: c };
+        out.push({ mode: "swap", slot, types: c, s: summarize(next) });
+      }
+      next[slot] = keep;
+    }
+  }
+  out.sort((a, b) => cmpKey(rankKey(a.s), rankKey(b.s)));
+
+  // 同じ型が複数スロットぶん並ぶので、型ごとに最善の1件だけ残す
+  const seen = new Map();
+  for (const r of out) { const k = typeKey(r.types); if (!seen.has(k)) seen.set(k, r); }
+
+  return [...seen.values()].slice(0, 5).map(r => ({
+    ...r,
+    delta: {
+      danger:  r.s.danger  - base.danger,
+      caution: r.s.caution - base.caution,
+      thin:    r.s.thin    - base.thin,
+      score:   r.s.score   - base.score,
+    },
+    // 実例は原種を先に。メガでしか実現しない型もあるので、原種がなければメガを出す。
+    // 実例はレギュ使用可 → 原種 の順に優先する
+    examples: (BY_KEY.get(typeKey(r.types)) || [])
+      .filter(p => !p.legend)
+      .sort((a, b) => (b.legal - a.legal) || (a.kind - b.kind) || (a.i - b.i))
+      .slice(0, 4),
+  }));
+}
+
+/* === 4.5 レギュレーション判定 ============================================ */
+
+/**
+ * パーティが現行レギュレーションのチーム構築ルールを満たしているか。
+ * 判定するのは「構築時に静的に分かること」だけ ― 持ち物・技・とくせいは扱わない。
+ */
+function checkRules(party) {
+  const R = REG.rules;
+  const mons = party.filter(m => m.mon);                 // 型のみの仮枠は判定対象外
+  const virtual = party.length - mons.length;
+
+  const illegal = mons.filter(m => !m.mon.legal);
+  const bySpecies = new Map();
+  for (const m of mons) bySpecies.set(m.mon.sid, (bySpecies.get(m.mon.sid) || 0) + 1);
+  const dupes = mons.filter(m => bySpecies.get(m.mon.sid) > 1);
+
+  const out = [];
+  out.push({
+    id: "size",
+    ok: party.length >= R.teamMin && party.length <= R.teamMax,
+    label: `チーム ${R.teamMin}〜${R.teamMax} 体`,
+    detail: `現在 ${party.length} 体`,
+  });
+  if (R.speciesClause) out.push({
+    id: "species",
+    ok: dupes.length === 0,
+    label: "同じポケモンは1体まで",
+    detail: dupes.length ? [...new Set(dupes.map(m => m.name))].join("、") + " が重複" : "重複なし",
+  });
+  out.push({
+    id: "pool",
+    ok: illegal.length === 0,
+    na: virtual > 0 && mons.length === 0,
+    label: `${REG.id} で使用可`,
+    detail: illegal.length ? illegal.map(m => m.name).join("、") + " が対象外"
+          : virtual ? `${virtual} 枠が仮枠（判定対象外）` : "全員使用可",
+  });
+  return out;
+}
+
+/** 期間を過ぎていればデータが古い可能性がある、と分かるようにする */
+function regulationStatus(today = new Date()) {
+  const d = today.toISOString().slice(0, 10);
+  const daysLeft = Math.ceil((new Date(REG.end) - today) / 86400000);
+  return { today: d, before: d < REG.start, expired: d > REG.end, daysLeft };
+}
+
+/* === 5. 状態 ============================================================= */
+
+const STORE_KEY = "type-lab-party-v2";
+const SAMPLE = ["ガブリアス", "リザードン", "カビゴン", "ゲンガー", "ギャラドス", "サンダース"];
+
+let party = [];          // [{ types:number[], name:string, mon:object|null }]
+let sortMode = "risk";
+
+const memberOfMon   = p  => ({ types: p.types, name: p.name, mon: p });
+const memberOfTypes = ts => ({ types: ts, name: ts.map(t => TYPES[t].ja).join("・"), mon: null });
+
+function loadSample() {
+  party = SAMPLE.map(n => POKEMON.find(p => p.name === n)).filter(Boolean).map(memberOfMon);
+}
+
+function save() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(party.map(m => m.mon ? { i: m.mon.i } : { t: m.types })));
+  } catch (e) { /* プライベートウィンドウなどでは黙って諦める */ }
+}
+function load() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    if (!Array.isArray(arr) || !arr.length) return false;
+    party = arr
+      .map(e => (e && typeof e.i === "number" && POKEMON[e.i]) ? memberOfMon(POKEMON[e.i])
+              : (e && Array.isArray(e.t) && e.t.length)        ? memberOfTypes(e.t)
+              : null)
+      .filter(Boolean)
+      .slice(0, 6);
+    return party.length > 0;
+  } catch (e) { return false; }
+}
+
+/* === 6. 描画 ============================================================= */
+
+const $  = id => document.getElementById(id);
+const el = (tag, cls, txt) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (txt != null) n.textContent = txt;
+  return n;
+};
+
+function kindChip(kind) {
+  return kind ? el("span", "kchip k" + kind, KIND_LABEL[kind]) : null;
+}
+
+function typeChip(t) {
+  const c = el("span", "tchip", TYPES[t].ja);
+  c.style.background = TYPE_COLOR[t];
+  c.style.color = TYPE_INK[t];
+  return c;
+}
+
+function render() {
+  const a = analyze(party);
+  renderReadout(a);
+  renderSlots();
+  renderRules();
+  renderMatrix(a);
+  renderCoverage(a);
+  renderSuggest(a);
+  renderResults();
+  $("barNote").textContent = party.length
+    ? `${party.length}/6 体 ・ 危険 ${a.danger} タイプ`
+    : "パーティ未設定";
+  save();
+}
+
+function renderReadout(a) {
+  const box = $("readout");
+  box.textContent = "";
+  const avg = party.length ? a.score / party.length : 0;
+  const cov = a.offense.comboTotal ? a.offense.comboHit / a.offense.comboTotal : 0;
+
+  const stats = [
+    { k: "危険タイプ", v: a.danger, u: "/ 18", sub: "受け皿がいない攻撃タイプ",
+      tone: a.danger >= 3 ? "is-crit" : a.danger ? "is-warn" : "is-good" },
+    { k: "要注意タイプ", v: a.caution, u: "/ 18", sub: "弱点が受け皿を上回る",
+      tone: a.caution >= 4 ? "is-warn" : "" },
+    { k: "耐性スコア", v: (avg >= 0 ? "+" : "") + avg.toFixed(1), u: "/体", sub: "1体あたり。0 が全等倍",
+      tone: avg >= 4 ? "is-good" : avg < 1.5 ? "is-warn" : "" },
+    { k: "攻撃カバー", v: Math.round(cov * 100), u: "%",
+      sub: `171型のうち ${a.offense.comboHit} 型に抜群`,
+      tone: cov >= 0.8 ? "is-good" : cov < 0.5 ? "is-warn" : "" },
+  ];
+  for (const s of stats) {
+    const d = el("div", "stat " + (s.tone || ""));
+    const v = el("div", "v");
+    v.append(document.createTextNode(String(s.v)), el("span", "u", s.u));
+    d.append(el("div", "k", s.k), v, el("div", "sub", s.sub));
+    box.append(d);
+  }
+}
+
+function renderRegbar() {
+  const box = $("regbar");
+  box.textContent = "";
+  const st = regulationStatus();
+  box.append(el("span", "badge", REG.game));
+  box.append(el("span", null, REG.label));
+  box.append(el("span", "period", `${REG.start} → ${REG.end}`));
+  if (st.expired) {
+    box.append(el("span", "stale", "期間終了 ― 新レギュレーションのデータに更新してください"));
+  } else if (st.before) {
+    box.append(el("span", "stale", "開始前"));
+  } else {
+    box.append(el("span", null, `残り ${st.daysLeft} 日`));
+  }
+  box.append(el("span", null, `使用可 ${POKEMON.filter(p => p.legal).length} 件 / ${POKEMON.length} 件`));
+  box.append(el("span", "period", `データ取得 ${REG.builtAt}`));
+}
+
+function renderRules() {
+  const box = $("rules");
+  box.textContent = "";
+  for (const r of checkRules(party)) {
+    const c = el("div", "rchip " + (r.na ? "na" : r.ok ? "ok" : "ng"));
+    c.append(el("span", "mark", r.na ? "–" : r.ok ? "✓" : "✕"));
+    const t = el("span");
+    t.append(document.createTextNode(r.label));
+    const d = el("span", null, "　" + r.detail);
+    d.style.opacity = ".75";
+    t.append(d);
+    c.append(t);
+    box.append(c);
+  }
+}
+
+function renderSlots() {
+  const box = $("slots");
+  box.textContent = "";
+  party.forEach((m, i) => {
+    const s = el("div", "slot");
+    s.append(el("span", "idx", String(i + 1)));
+
+    const nm = el("div", "nm");
+    nm.append(document.createTextNode(m.name));
+    if (!m.mon) nm.append(el("span", "sub", "型のみの仮枠"));
+    else if (m.mon.kind) nm.append(document.createTextNode(" "), kindChip(m.mon.kind));
+    if (m.mon && !m.mon.legal) {
+      s.classList.add("illegal");
+      nm.append(document.createTextNode(" "), el("span", "kchip ng", REG.id + " 不可"));
+    }
+    s.append(nm);
+
+    const ch = el("div", "chips");
+    m.types.forEach(t => ch.append(typeChip(t)));
+    s.append(ch);
+
+    const rm = el("button", "rm", "×");
+    rm.type = "button";
+    rm.setAttribute("aria-label", m.name + " を外す");
+    rm.onclick = () => { party.splice(i, 1); render(); };
+    s.append(rm);
+    box.append(s);
+  });
+  for (let i = party.length; i < 6; i++) box.append(el("div", "slot empty", `${i + 1} ― 空き`));
+}
+
+function renderMatrix(a) {
+  const table = $("matrix");
+  table.textContent = "";
+
+  const rows = sortMode === "risk"
+    ? a.rows.slice().sort((x, y) =>
+        (ORDER[y.level] - ORDER[x.level]) || (y.worst - x.worst) || (y.weak - x.weak) || (x.t - y.t))
+    : a.rows;
+
+  const thead = el("thead"), htr = el("tr");
+  htr.append(el("th", "h-type", "攻撃タイプ"));
+  party.forEach((m, i) => {
+    const th = el("th", "h-mon");
+    th.title = m.name;
+    th.append(el("span", "n", String(i + 1)), el("span", "mn", m.name));
+    htr.append(th);
+  });
+  htr.append(el("th", "h-bar", "弱/耐"), el("th", "h-j", "判定"));
+  thead.append(htr);
+  table.append(thead);
+
+  const tb = el("tbody");
+  const n = Math.max(party.length, 1);
+  for (const r of rows) {
+    const tr = el("tr", "row lvl-" + r.level);
+
+    const tn = el("td", "t-name");
+    tn.append(typeChip(r.t));
+    tr.append(tn);
+
+    r.mults.forEach(m => {
+      const td = el("td", "cell");
+      const sp = el("span", "m " + (MUL_CLASS.get(m) || "m-x1"), MUL_TEXT.get(m) ?? String(m));
+      sp.title = "×" + m;
+      td.append(sp);
+      tr.append(td);
+    });
+
+    const bd = el("td", "bar");
+    const bw = el("div", "barwrap");
+    const w = el("i", "w"); w.style.width = (r.weak / n * 100) + "%";
+    const g = el("i", "r"); g.style.width = (r.res  / n * 100) + "%";
+    bw.append(w, g);
+    bd.append(bw, el("span", "cnt", `${r.weak} / ${r.res}`));
+    tr.append(bd);
+
+    const jd = el("td", "judge");
+    jd.append(el("span", "jchip j-" + r.level, LEVEL_JA[r.level]));
+    tr.append(jd);
+
+    tb.append(tr);
+  }
+  table.append(tb);
+}
+
+function renderLegend() {
+  const L = $("legend");
+  L.textContent = "";
+  [[4, "4倍"], [2, "2倍"], [1, "等倍"], [0.5, "半減"], [0.25, "¼"], [0, "無効"]].forEach(([m, label]) => {
+    const w = el("span");
+    w.append(el("span", "m " + MUL_CLASS.get(m), MUL_TEXT.get(m)), document.createTextNode(label));
+    L.append(w);
+  });
+  L.append(el("span", null, "判定 ― 危険: 弱点2体以上かつ半減1体以下／注意: 弱点 > 受け皿／手薄: 半減できる味方ゼロ"));
+}
+
+function renderCoverage(a) {
+  const box = $("cov");
+  box.textContent = "";
+  const o = a.offense;
+  const pct = o.comboTotal ? o.comboHit / o.comboTotal : 0;
+
+  const p1 = el("div", "panel");
+  p1.append(el("h3", null, "全171型への抜群率"), el("div", "big", Math.round(pct * 100) + "%"));
+  const g = el("div", "gauge"), gi = el("i");
+  gi.style.width = (pct * 100) + "%";
+  g.append(gi);
+  p1.append(g, el("div", "note", `${o.comboHit} / ${o.comboTotal} 型に 2倍以上を取れます`));
+  box.append(p1);
+
+  const p2 = el("div", "panel");
+  p2.append(el("h3", null, "抜群を取れない単タイプ"));
+  if (!o.uncovered.length) {
+    const d = el("div", "note", "18タイプすべてに抜群を取れます。");
+    d.style.color = "var(--good)";
+    p2.append(d);
+  } else {
+    const c = el("div", "chips");
+    c.style.marginTop = "9px";
+    o.uncovered.forEach(t => c.append(typeChip(t)));
+    p2.append(c, el("div", "note", `${o.uncovered.length} タイプ。等倍以下でしか殴れない相手です。`));
+  }
+  box.append(p2);
+
+  const p3 = el("div", "panel");
+  p3.append(el("h3", null, "パーティが持つ攻撃タイプ"));
+  const c3 = el("div", "chips");
+  c3.style.marginTop = "9px";
+  o.atk.slice().sort((x, y) => x - y).forEach(t => c3.append(typeChip(t)));
+  p3.append(c3, el("div", "note", `${o.atk.length} 種類。重複が多いほどカバー範囲は狭くなります。`));
+  box.append(p3);
+}
+
+function renderSuggest(a) {
+  const box = $("sug");
+  box.textContent = "";
+
+  if (!party.length) {
+    $("sugHint").textContent = "";
+    const d = el("div", "panel", "パーティを1体以上入れると提案が出ます。");
+    d.style.color = "var(--muted)";
+    box.append(d);
+    return;
+  }
+
+  const swap = party.length === 6;
+  $("sugHint").textContent = swap ? "6体埋まっているので入れ替え案" : `${party.length + 1} 体目として`;
+
+  const delta = (v, label) => {
+    const w = el("span");
+    w.append(document.createTextNode(label + " "),
+             el("b", v < 0 ? "up" : v > 0 ? "down" : null, (v > 0 ? "+" : "") + v));
+    return w;
+  };
+
+  suggest(party, a).forEach((r, i) => {
+    const row = el("div", "sugrow" + (i === 0 ? " top" : ""));
+    row.append(el("div", "rank", String(i + 1)));
+
+    const main = el("div", "sugmain");
+    const head = el("div", "chips");
+    r.types.forEach(t => head.append(typeChip(t)));
+    if (swap) head.append(el("span", "swapnote", "← " + party[r.slot].name + " と交代"));
+    main.append(head);
+
+    const d = el("div", "sugdelta");
+    d.append(delta(r.delta.danger, "危険"), document.createTextNode("　"),
+             delta(r.delta.caution, "注意"), document.createTextNode("　"),
+             delta(r.delta.thin, "手薄"), document.createTextNode("　"));
+    const sc = el("span");
+    sc.append(document.createTextNode("スコア "),
+              el("b", r.delta.score > 0 ? "up" : r.delta.score < 0 ? "down" : null,
+                 (r.delta.score > 0 ? "+" : "") + r.delta.score.toFixed(1)));
+    d.append(sc);
+    main.append(d, el("div", "sugex", r.examples.length
+      ? "例: " + r.examples.map(p => p.name).join("、")
+      : "この組み合わせを持つポケモンは（伝説・幻を除くと）いません"));
+    row.append(main);
+
+    const btn = el("button", "btn sm" + (i === 0 ? " primary" : ""), swap ? "入れ替える" : "この枠を追加");
+    btn.type = "button";
+    btn.onclick = () => {
+      const m = r.examples.length ? memberOfMon(r.examples[0]) : memberOfTypes(r.types);
+      if (swap) party[r.slot] = m; else party.push(m);
+      render();
+    };
+    row.append(btn);
+    box.append(row);
+  });
+}
+
+function renderResults() {
+  const q = norm($("q").value.trim());
+  const box = $("results");
+  box.textContent = "";
+
+  if (!q) {
+    $("resNote").textContent = "名前の一部・ローマ字・タイプ名で絞り込めます。";
+    return;
+  }
+  const full = party.length >= 6;
+  const forms = $("incForms").checked;
+  const legalOnly = $("legalOnly").checked;
+  const hits = POKEMON.filter(p =>
+    (forms || p.kind === 0) &&
+    (!legalOnly || p.legal) &&
+    (p.key.includes(q) ||
+     p.types.some(t => TYPES[t].ja.includes(q) || TYPES[t].en.toLowerCase() === q))
+  );
+  const shown = hits.slice(0, 80);
+
+  for (const p of shown) {
+    const b = el("button", "res");
+    b.type = "button";
+    b.disabled = full;
+    const sw = el("span", "swatch");
+    p.types.forEach(t => {
+      const s = el("span", "sq");
+      s.style.background = TYPE_COLOR[t];
+      sw.append(s);
+    });
+    b.append(sw, document.createTextNode(p.name));
+    if (p.kind) b.append(kindChip(p.kind));
+    if (!p.legal) b.append(el("span", "kchip ng", REG.id + " 不可"));
+    b.onclick = () => { if (party.length < 6) { party.push(memberOfMon(p)); render(); } };
+    box.append(b);
+  }
+  $("resNote").textContent = !hits.length ? "見つかりませんでした。"
+    : full ? "パーティが満員です。どれか外してから追加してください。"
+    : `${hits.length} 件${hits.length > shown.length ? `（先頭 ${shown.length} 件を表示）` : ""}`;
+}
+
+function renderFullChart() {
+  const t = $("fullChart");
+  t.textContent = "";
+  const head = el("tr");
+  head.append(el("th", "h", "攻 ＼ 防"));
+  TYPES.forEach(ty => head.append(el("th", "v", ty.ja)));
+  t.append(head);
+
+  TYPES.forEach((atk, i) => {
+    const tr = el("tr");
+    tr.append(el("th", "h", atk.ja));
+    TYPES.forEach((def, j) => {
+      const v = CHART[i][j];
+      const td = el("td",
+        v === 2 ? "f2" : v === 0 ? "f0" : v === 0.5 ? "fh" : "f1",
+        v === 2 ? "2" : v === 0 ? "0" : v === 0.5 ? "½" : "");
+      td.title = `${atk.ja} → ${def.ja} : ×${v}`;
+      tr.append(td);
+    });
+    t.append(tr);
+  });
+}
+
+/* === 7. 起動 ============================================================= */
+
+$("explain").innerHTML = `
+<h4>1. 相性は掛け算にすぎない</h4>
+<p>18×18 の表 <code>CHART[攻撃][防御]</code> に <code>0 / 0.5 / 1 / 2</code> が入っているだけです。複合タイプの被ダメージは2つを掛けるので、ループ1本で終わります。<code>×4</code> や <code>×¼</code> はこの積から自然に生まれるもので、特別な分岐は要りません。</p>
+
+<h4>2. スコアは log2 で対称にする</h4>
+<p>倍率をそのまま足すと <code>×2</code>（+1）と <code>×½</code>（-0.5）が非対称になり、弱点1つが半減1つで釣り合いません。<code>-log2(m)</code> を使うと <code>×2 → -1</code>、<code>×½ → +1</code> ときれいに対称になります。無効（<code>×0</code>）だけは対数が発散するので、価値 <code>+3</code> の特別扱いです。</p>
+
+<h4>3. 平均より「穴」を見る</h4>
+<p>耐性スコアの平均が高くても、6体そろって同じタイプに弱ければ壊滅します。そこでスコアとは別に、タイプごとの<b>弱点数と受け皿数</b>から4段階の判定を出しています。1つの指標に丸めず、性質の違う数字を並べて置くのが要点です。</p>
+
+<h4>4. 補完は素直に全探索</h4>
+<p>候補は単タイプ18＋複合153＝<code>171</code>型。6体埋まっているときは「どの枠を差し替えるか」も含めて <code>6 × 171 = 1026</code> 通り。1回の評価が <code>18タイプ × 6体 = 108</code> 回の掛け算なので、全部で約11万回です。この規模ならブラウザで一瞬なので、賢い枝刈りを考えるより全部試すほうが速くて確実です。</p>
+
+<h4>5. 答えを決めているのは評価関数</h4>
+<p>候補の並べ替えは <code>[危険数, 注意数, 手薄数, -スコア]</code> の辞書式比較です。だから提案の順位は、スコアが下の案が上に来ることがあります（先に手薄を潰しているため）。この優先順位を変えると提案の性格が変わります ― 「スコア最優先」にすると、穴を残したまま平均だけ高い構成を薦めてきます。最適化の質はアルゴリズムより評価関数で決まる、という分かりやすい例です。</p>
+
+<h4>6. データはビルド時に固める</h4>
+<p>PokéAPI の GraphQL から ${POKEMON.length} 件を取得し、<code>[名前, 型1, 型2, 世代, 伝説フラグ, ローマ字, 種別]</code> の配列に圧縮して HTML に直接埋め込んでいます（約40KB）。収録ルールは「原種 + メガシンカ/ゲンシカイキは全件 + それ以外のフォルムは原種とタイプが違うものだけ」― メガは同じタイプでもパーティ編成上の別個体として扱い、トーテムフォルムのような見た目だけの差分は落としています。実行時の通信がゼロなので、オフラインでも動き、レート制限も CORS も考えずに済みます。「動的に取りにいく」より「ビルド時に固める」ほうが良い場面は多いです。</p>
+
+<h4>7. レギュレーションは「定義」だけ持ち、中身は引いてくる</h4>
+<p>${REG.game} のレギュレーションは3〜4か月で入れ替わります。使用可能ポケモンをコードに直書きすると毎回その一覧を書き換えることになるので、<code>regulations.json</code> には期間とルール（チーム${REG.rules.teamMin}〜${REG.rules.teamMax}体、同族1体まで、レベル${REG.rules.level}固定）だけを書き、実際のロースター ${REG.species.length} 種は PokéAPI の図鑑（<code>pokedex id = ${DATA.regulation.pokedexId ?? 36}</code>、内部名 champions）から解決しています。新レギュレーションが来たら <code>node update.mjs</code> を叩くと、最新ロースターを取り込んで前回との差分を出します。</p>
+<h4>8. フォルム単位の可否は、別のテーブルから復元する</h4>
+<p>図鑑が教えてくれるのは「種」までで、メガやリージョンフォルムが使えるかは分かりません。そこで <code>${REG.game}</code> の技マシン習得表（version group ${DATA.regulation.pokedexId === 36 ? 32 : "?"}）を引いています。<b>そのソフトに技データがある姿＝実装されている姿</b>という筋で、メガ ${POKEMON.filter(p => p.legal && p.kind === 1).length} 件とリージョンフォルム ${POKEMON.filter(p => p.legal && p.kind === 2).length} 件をフォルム単位で確定させました。</p>
+<p>ただし PokéAPI の習得表は図鑑より更新が遅れます。実際、ロースターに入ったばかりの ${REG.laggingSpecies} 種はまだ技データがありません。この種については「取りこぼすより拾いすぎるほうがまし」と考えて、種単位で使用可としています。それでも漏れるもの（既存種に後から追加されたメガなど）は <code>regulations.json</code> の <code>formOverrides</code> に手で書きます ― 現在 ${REG.overrides.length} 件。綴りを間違えると効かないので、一致しなかった override はビルド時に警告します。</p>
+<p>3つの情報源を重ねているので、どれが効いたかは常に追えます: <b>図鑑</b>（種の在否・最新）→ <b>習得表</b>（姿の在否・やや遅れる）→ <b>手動リスト</b>（どちらも間に合っていない分）。</p>
+`;
+
+$("q").addEventListener("input", renderResults);
+$("sample").onclick = () => { loadSample(); $("q").value = ""; render(); };
+$("clear").onclick  = () => { party = []; render(); };
+$("sortBtn").onclick = e => {
+  sortMode = sortMode === "risk" ? "type" : "risk";
+  e.currentTarget.textContent = "並び: " + (sortMode === "risk" ? "危険度順" : "タイプ順");
+  render();
+};
+
+const KIND_COUNT = POKEMON.reduce((m, p) => (m[p.kind] = (m[p.kind] || 0) + 1, m), {});
+$("cnt").textContent = POKEMON.length.toLocaleString("ja-JP");
+$("cntBreak").textContent =
+  `原種 ${(KIND_COUNT[0] || 0).toLocaleString("ja-JP")} 体、メガシンカ・ゲンシカイキ ${KIND_COUNT[1] || 0} 件、` +
+  `原種とタイプが異なるリージョンフォルム等 ${KIND_COUNT[2] || 0} 件`;
+$("incForms").addEventListener("change", renderResults);
+$("legalOnly").addEventListener("change", renderResults);
+$("legalOnlyLabel").textContent = `${REG.id} で使用可のみ`;
+$("regSources").textContent = REG.sources.join(" ／ ");
+renderRegbar();
+if (!load()) loadSample();
+renderLegend();
+renderFullChart();
+render();
+</script>

@@ -1,0 +1,64 @@
+{
+  "_comment": [
+    "Pokémon Champions のレギュレーション定義。新レギュレーションが来たらここに 1 ブロック足して",
+    "current を書き換え、node update.mjs を実行する。使用可能ポケモンの実体は PokéAPI の",
+    "図鑑 (pokedex) から解決するので、ここに種の一覧を手で書く必要はない。"
+  ],
+  "current": "M-C",
+  "sets": [
+    {
+      "id": "M-C",
+      "label": "レギュレーション M-C",
+      "game": "Pokémon Champions",
+      "start": "2026-09-09",
+      "end": "2026-12-02",
+      "pool": {
+        "source": "pokedex",
+        "pokedexId": 36,
+        "versionGroupId": 32
+      },
+      "megaRule": "learnset-with-overrides",
+      "rules": {
+        "format": "doubles",
+        "teamMin": 4,
+        "teamMax": 6,
+        "bring": 4,
+        "level": 50,
+        "speciesClause": true,
+        "itemClause": true,
+        "restrictedMax": 0
+      },
+      "sources": [
+        "https://www.serebii.net/pokemonchampions/rankedbattle/regulationm-c.shtml",
+        "https://victoryroad.pro/champions-regulations/"
+      ],
+      "formOverrides": {
+        "_comment": "PokéAPI の learnset が追いつくまでの手動補正。PokéAPI の pokemon 名（スラッグ）で指定する。allow=使用可に上書き、deny=使用不可に上書き。",
+        "allow": [
+          "absol-mega-z",
+          "garchomp-mega-z",
+          "lucario-mega-z"
+        ],
+        "deny": []
+      }
+    },
+    {
+      "id": "M-B",
+      "label": "レギュレーション M-B",
+      "game": "Pokémon Champions",
+      "start": "2026-06-17",
+      "end": "2026-09-09",
+      "pool": null,
+      "note": "終了済み。PokéAPI は最新ロースターしか持たないため、当時のプールは再現できない。"
+    },
+    {
+      "id": "M-A",
+      "label": "レギュレーション M-A",
+      "game": "Pokémon Champions",
+      "start": "2026-04-08",
+      "end": "2026-06-17",
+      "pool": null,
+      "note": "終了済み。同上。"
+    }
+  ]
+}

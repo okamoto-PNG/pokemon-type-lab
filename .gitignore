@@ -1,0 +1,6 @@
+# build.mjs が毎回生成する（テスト用にロジックを切り出したもの）
+logic.mjs
+
+node_modules/
+.DS_Store
+Thumbs.db

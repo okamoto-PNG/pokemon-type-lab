@@ -1,0 +1,1096 @@
+<title>タイプ相性ラボ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* ===== トークン =========================================================== */
+:root{
+  --bg:#f1f4f3; --surface:#ffffff; --surface-2:#e8edeb; --surface-3:#dfe5e3;
+  --ink:#131a18; --ink-2:#475651; --muted:#75867f;
+  --line:#d6dedb; --line-2:#bfcac6;
+  --accent:#1c5966; --on-accent:#f2fbfd;
+  --crit:#a8382a; --crit-1:#f6dcd7; --crit-2:#e3ab9f;
+  --warn:#8d6410; --warn-1:#f7ebcf;
+  --good:#2c6647; --good-1:#d7ebdf; --good-2:#aed4bf;
+  --void:#1c5966;
+  --r:10px;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic UI",system-ui,sans-serif;
+  --disp:"Archivo","Zen Kaku Gothic New","Hiragino Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1211; --surface:#151c1a; --surface-2:#1d2623; --surface-3:#26302c;
+    --ink:#e2e9e6; --ink-2:#a3b2ad; --muted:#7a8a84;
+    --line:#25302c; --line-2:#36423d;
+    --accent:#6ab6c6; --on-accent:#051619;
+    --crit:#e8796a; --crit-1:#3b1d18; --crit-2:#6d3126;
+    --warn:#dcab55; --warn-1:#352a12;
+    --good:#6fc094; --good-1:#152e21; --good-2:#22503a;
+    --void:#2b6675;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1211; --surface:#151c1a; --surface-2:#1d2623; --surface-3:#26302c;
+  --ink:#e2e9e6; --ink-2:#a3b2ad; --muted:#7a8a84;
+  --line:#25302c; --line-2:#36423d;
+  --accent:#6ab6c6; --on-accent:#051619;
+  --crit:#e8796a; --crit-1:#3b1d18; --crit-2:#6d3126;
+  --warn:#dcab55; --warn-1:#352a12;
+  --good:#6fc094; --good-1:#152e21; --good-2:#22503a;
+  --void:#2b6675;
+}
+
+/* ===== ベース ============================================================= */
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--sans); font-size:14px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px; margin:0 auto; padding-inline:16px; padding-block:0 56px}
+h1,h2,h3{margin:0; text-wrap:balance; font-weight:700}
+button{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+@media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important} }
+
+.eyebrow{
+  font-family:var(--disp); font-size:10px; font-weight:700; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted);
+}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums}
+.note{font-size:11px; color:var(--muted); margin-top:8px}
+
+/* ===== ヘッダー =========================================================== */
+header.bar{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--bg);
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+}
+.bar-in{
+  max-width:1120px; margin:0 auto; padding:10px 16px;
+  display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+}
+.logo{font-family:var(--disp); font-weight:800; font-size:17px; letter-spacing:-.01em}
+.logo .dot{color:var(--accent)}
+.bar-note{font-size:11px; color:var(--muted); margin-left:auto}
+
+/* ===== サマリー =========================================================== */
+.hero{padding-block:22px 18px; border-bottom:1px solid var(--line)}
+.hero h1{font-size:clamp(22px,4.4vw,31px); letter-spacing:-.02em; line-height:1.28; margin-top:4px}
+.hero p{margin:10px 0 0; color:var(--ink-2); max-width:62ch; font-size:13.5px}
+
+.readout{
+  display:grid; gap:1px; margin-top:20px;
+  grid-template-columns:repeat(auto-fit,minmax(132px,1fr));
+  background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden;
+}
+.stat{background:var(--surface); padding:12px 14px 13px}
+.stat .k{font-size:10.5px; letter-spacing:.08em; color:var(--muted); font-weight:500}
+.stat .v{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:28px; line-height:1.15; font-weight:600; margin-top:2px}
+.stat .u{font-size:11px; color:var(--muted); margin-left:3px; font-family:var(--sans); font-weight:400}
+.stat.is-crit .v{color:var(--crit)} .stat.is-warn .v{color:var(--warn)} .stat.is-good .v{color:var(--good)}
+.stat .sub{font-size:10.5px; color:var(--muted); margin-top:1px; line-height:1.4}
+
+/* ===== セクション ========================================================= */
+section{padding-block:30px}
+section + section{border-top:1px solid var(--line)}
+.shead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px}
+.shead h2{font-size:16.5px; letter-spacing:-.01em}
+.shead .hint{font-size:11.5px; color:var(--muted)}
+.lede{margin:2px 0 16px; color:var(--ink-2); font-size:12.5px; max-width:70ch}
+
+/* ===== パーティ =========================================================== */
+.slots{display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:8px}
+.slot{
+  position:relative; background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r); padding:9px 10px 10px; min-height:68px; text-align:left;
+  display:flex; flex-direction:column; gap:6px;
+}
+.slot.empty{
+  border-style:dashed; background:transparent; color:var(--muted);
+  align-items:center; justify-content:center; font-size:11.5px;
+}
+.slot .idx{
+  position:absolute; top:7px; right:9px; font-family:var(--mono); font-size:10px;
+  color:var(--muted); font-weight:600;
+}
+.slot .nm{font-size:13px; font-weight:500; line-height:1.35; padding-right:16px; overflow-wrap:anywhere}
+.slot .nm .sub{display:block; font-size:10px; color:var(--muted); font-weight:400}
+.slot .rm{
+  position:absolute; bottom:7px; right:7px; width:20px; height:20px; padding:0;
+  border:1px solid var(--line); background:var(--surface); border-radius:5px;
+  color:var(--muted); cursor:pointer; line-height:1; font-size:12px;
+}
+.slot .rm:hover{border-color:var(--crit); color:var(--crit)}
+
+.chips{display:flex; gap:4px; flex-wrap:wrap}
+.tchip{
+  font-size:10.5px; font-weight:700; line-height:1; padding:4px 7px 5px;
+  border-radius:4px; letter-spacing:.02em; white-space:nowrap;
+}
+
+/* ===== 検索 =============================================================== */
+.search{margin-top:18px}
+.search-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+input[type="search"]{
+  flex:1 1 220px; min-width:0; font:inherit; font-size:13.5px; color:var(--ink);
+  background:var(--surface); border:1px solid var(--line-2); border-radius:8px;
+  padding:9px 12px; -webkit-appearance:none;
+}
+input[type="search"]::placeholder{color:var(--muted)}
+.btn{
+  border:1px solid var(--line-2); background:var(--surface); border-radius:8px;
+  padding:9px 13px; font-size:12.5px; cursor:pointer; white-space:nowrap;
+}
+.btn:hover{border-color:var(--accent); color:var(--accent)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:500}
+.btn.primary:hover{color:var(--on-accent); filter:brightness(1.1)}
+.btn:disabled{opacity:.4; cursor:not-allowed}
+.btn.sm{padding:5px 9px; font-size:11.5px; border-radius:6px}
+
+.results{
+  display:flex; flex-wrap:wrap; gap:5px; margin-top:12px;
+  max-height:214px; overflow-y:auto; padding:2px;
+}
+.res{
+  display:flex; align-items:center; gap:6px; cursor:pointer;
+  border:1px solid var(--line); background:var(--surface); border-radius:7px;
+  padding:5px 9px 5px 7px; font-size:12px; text-align:left;
+}
+.res:hover{border-color:var(--accent)}
+.res .swatch{display:flex; gap:2px; flex:none}
+.res .sq{width:7px; height:14px; border-radius:2px}
+.res-note{font-size:11.5px; color:var(--muted); margin-top:10px}
+.tog{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); cursor:pointer; white-space:nowrap}
+.tog input{accent-color:var(--accent); width:15px; height:15px; margin:0; flex:none}
+.kchip{
+  font-size:9px; font-weight:700; letter-spacing:.04em; line-height:1; flex:none;
+  padding:2px 4px 3px; border-radius:3px; background:var(--surface-2); color:var(--muted);
+}
+.kchip.k1{background:var(--accent); color:var(--on-accent)}
+.kchip.ng{background:var(--crit); color:#fff}
+
+/* ===== レギュレーション ==================================================== */
+.regbar{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-top:12px;
+  font-size:11.5px; color:var(--ink-2);
+}
+.regbar .badge{
+  font-family:var(--disp); font-weight:700; font-size:11px; letter-spacing:.04em;
+  background:var(--accent); color:var(--on-accent); padding:4px 8px 5px; border-radius:5px;
+}
+.regbar .period{font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums}
+.regbar .stale{
+  background:var(--warn-1); color:var(--warn); font-weight:600; font-size:10.5px;
+  padding:3px 7px 4px; border-radius:5px; box-shadow:inset 0 0 0 1px currentColor;
+}
+.rules{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px}
+.rchip{
+  display:flex; align-items:center; gap:5px; font-size:11.5px; line-height:1.3;
+  border:1px solid var(--line); background:var(--surface);
+  border-radius:7px; padding:6px 9px 7px;
+}
+.rchip .mark{font-family:var(--mono); font-weight:700; flex:none}
+.rchip.ok  .mark{color:var(--good)}
+.rchip.ng  {border-color:var(--crit); background:var(--crit-1)}
+.rchip.ng  .mark{color:var(--crit)}
+.rchip.ng  {color:var(--crit)}
+.rchip.na  {color:var(--muted)}
+.slot.illegal{border-color:var(--crit); box-shadow:inset 0 0 0 1px var(--crit-1)}
+
+/* ===== 被ダメージ行列 ===================================================== */
+.scroller{overflow-x:auto; margin-top:2px; border:1px solid var(--line); border-radius:var(--r); background:var(--surface)}
+table.matrix{border-collapse:collapse; width:100%; min-width:366px}
+table.matrix th, table.matrix td{border-bottom:1px solid var(--line); padding:0}
+table.matrix tbody tr:last-child td{border-bottom:0}
+table.matrix thead th{
+  background:var(--surface-2); border-bottom:1px solid var(--line-2);
+  font-size:10px; font-weight:600; color:var(--ink-2); padding:6px 3px; vertical-align:bottom;
+}
+table.matrix thead th.h-type{text-align:left; padding-left:10px; width:78px}
+table.matrix thead th.h-mon{width:32px}
+table.matrix thead th .n{font-family:var(--mono); font-size:12px; color:var(--ink); display:block}
+table.matrix thead th .mn{
+  display:none; font-size:8.5px; font-weight:400; color:var(--muted);
+  max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:1px auto 0;
+}
+table.matrix thead th.h-bar{width:60px} table.matrix thead th.h-j{width:56px; padding-right:8px}
+@media (min-width:760px){
+  table.matrix thead th.h-mon{width:68px}
+  table.matrix thead th .mn{display:block}
+  table.matrix thead th.h-type{width:96px}
+}
+tr.row:hover td{background:color-mix(in srgb, var(--accent) 7%, transparent)}
+td.t-name{padding:0 4px 0 10px; font-size:11.5px; white-space:nowrap}
+td.cell{text-align:center}
+.m{
+  display:block; margin:3px 2px; border-radius:4px; padding:5px 0;
+  font-family:var(--mono); font-variant-numeric:tabular-nums;
+  font-size:12px; font-weight:600; line-height:1.1;
+}
+.m-x4{background:var(--crit); color:#fff}
+.m-x2{background:var(--crit-1); color:var(--crit)}
+.m-x1{background:transparent; color:var(--muted); font-weight:400}
+.m-h {background:var(--good-1); color:var(--good)}
+.m-q {background:var(--good-2); color:var(--good)}
+.m-x0{background:var(--void); color:#f2fbfd}
+td.bar{padding:0 4px}
+.barwrap{display:flex; height:7px; border-radius:99px; overflow:hidden; background:var(--surface-3)}
+.barwrap i{display:block; height:100%}
+.barwrap .w{background:var(--crit)} .barwrap .r{background:var(--good)}
+td.bar .cnt{font-family:var(--mono); font-size:9.5px; color:var(--muted); display:block; text-align:center; margin-top:1px}
+td.judge{padding-right:8px; text-align:right}
+.jchip{
+  display:inline-block; font-size:10px; font-weight:700; padding:3px 6px 4px;
+  border-radius:4px; line-height:1; white-space:nowrap;
+}
+.j-danger{background:var(--crit); color:#fff}
+.j-caution{background:var(--warn-1); color:var(--warn); box-shadow:inset 0 0 0 1px currentColor}
+.j-thin{background:transparent; color:var(--muted); box-shadow:inset 0 0 0 1px var(--line-2)}
+.j-safe{background:transparent; color:var(--good)}
+tr.row.lvl-danger td.t-name{box-shadow:inset 3px 0 0 var(--crit)}
+tr.row.lvl-caution td.t-name{box-shadow:inset 3px 0 0 var(--warn)}
+
+.legend{display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:10px; font-size:10.5px; color:var(--muted); align-items:center}
+.legend .m{display:inline-block; margin:0 3px 0 0; padding:3px 6px; font-size:10px; vertical-align:middle}
+
+/* ===== 攻撃カバレッジ ===================================================== */
+.cov{display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); align-items:start}
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:14px 15px 15px}
+.panel h3{font-size:12px; letter-spacing:.04em; color:var(--ink-2); font-weight:600}
+.gauge{height:9px; border-radius:99px; background:var(--surface-3); overflow:hidden; margin:8px 0 6px}
+.gauge i{display:block; height:100%; background:var(--accent)}
+.big{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:26px; font-weight:600; line-height:1.2; margin-top:6px}
+
+/* ===== 補完の提案 ========================================================= */
+.sug{display:grid; gap:8px}
+.sugrow{
+  display:grid; gap:10px 12px; align-items:center;
+  grid-template-columns:auto 1fr auto;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:11px 12px;
+}
+.sugrow.top{border-color:var(--accent); box-shadow:inset 3px 0 0 var(--accent)}
+.rank{font-family:var(--mono); font-size:12px; font-weight:600; color:var(--muted); width:16px; text-align:right}
+.sugmain{min-width:0}
+.sugdelta{font-size:11px; color:var(--ink-2); margin-top:6px}
+.sugdelta b{font-family:var(--mono); font-weight:600; font-variant-numeric:tabular-nums}
+.sugdelta .up{color:var(--good)} .sugdelta .down{color:var(--crit)}
+.sugex{font-size:11px; color:var(--muted); margin-top:3px; overflow-wrap:anywhere}
+.swapnote{font-size:11px; color:var(--muted); align-self:center}
+@media (max-width:540px){ .sugrow{grid-template-columns:auto 1fr} .sugrow .btn{grid-column:2; justify-self:start} }
+
+/* ===== 資料 =============================================================== */
+details.box{border:1px solid var(--line); border-radius:var(--r); background:var(--surface); margin-top:10px}
+details.box > summary{
+  cursor:pointer; padding:12px 14px; font-size:13px; font-weight:500; list-style:none;
+  display:flex; align-items:center; gap:8px;
+}
+details.box > summary::-webkit-details-marker{display:none}
+details.box > summary::before{content:"+"; font-family:var(--mono); color:var(--accent); font-weight:600}
+details.box[open] > summary::before{content:"−"}
+details.box .body{padding:0 14px 14px}
+table.full{border-collapse:collapse; font-family:var(--mono); font-size:9.5px}
+table.full th{font-weight:600; color:var(--ink-2); padding:2px}
+table.full th.v{writing-mode:vertical-rl; text-orientation:mixed; height:60px; font-family:var(--sans); font-size:9.5px; font-weight:500}
+table.full th.h{font-family:var(--sans); text-align:right; padding-right:6px; white-space:nowrap; font-weight:500}
+table.full td{width:21px; height:19px; text-align:center; border:1px solid var(--surface); border-radius:2px}
+.f2{background:var(--crit-1); color:var(--crit); font-weight:600}
+.f1{background:var(--surface-2); color:var(--muted)}
+.fh{background:var(--good-1); color:var(--good)}
+.f0{background:var(--void); color:#f2fbfd; font-weight:600}
+
+.prose{font-size:12.5px; color:var(--ink-2); max-width:72ch}
+.prose h4{margin:15px 0 4px; font-size:12px; color:var(--ink); letter-spacing:.02em; font-weight:700}
+.prose h4:first-child{margin-top:2px}
+.prose p{margin:0 0 6px}
+.prose code{font-family:var(--mono); font-size:11.5px; background:var(--surface-2); padding:1px 4px; border-radius:3px}
+
+footer{border-top:1px solid var(--line); margin-top:8px; padding-top:16px; font-size:11px; color:var(--muted); line-height:1.75}
+footer a{color:var(--accent)}
+</style>
+
+<header class="bar">
+  <div class="bar-in">
+    <span class="logo">タイプ相性<span class="dot">ラボ</span></span>
+    <span class="bar-note" id="barNote"></span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <span class="eyebrow">Party defense analyzer</span>
+    <div class="regbar" id="regbar"></div>
+    <h1>その6体、同じタイプで<br>まとめて落ちませんか。</h1>
+    <p>パーティを組むと、18の攻撃タイプそれぞれについて「何体が弱点を突かれ、何体が受けられるか」を総当たりで計算します。穴が見つかったら、7体目（または入れ替え）に何型を置けばいちばん塞がるかも全探索で出します。</p>
+    <div class="readout" id="readout"></div>
+  </div>
+
+  <section>
+    <div class="shead"><h2>パーティ</h2><span class="hint">最大6体・× ボタンで削除</span></div>
+    <div class="slots" id="slots"></div>
+    <div class="rules" id="rules"></div>
+    <div class="search">
+      <div class="search-row">
+        <input type="search" id="q" placeholder="名前・ローマ字・タイプ名で検索（例: ガブリアス / kairyu / メガ / はがね）" autocomplete="off" spellcheck="false">
+        <button class="btn" id="sample" type="button">サンプル</button>
+        <button class="btn" id="clear" type="button">全消去</button>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:10px">
+        <label class="tog" for="legalOnly">
+          <input type="checkbox" id="legalOnly" checked>
+          <span id="legalOnlyLabel">レギュレーション使用可のみ</span>
+        </label>
+        <label class="tog" for="incForms">
+          <input type="checkbox" id="incForms" checked>
+          メガシンカ・リージョンフォルムも検索対象にする
+        </label>
+      </div>
+      <div class="results" id="results"></div>
+      <div class="res-note" id="resNote"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <h2>被ダメージ行列</h2>
+      <span class="hint">行＝攻撃タイプ／列＝パーティの並び順</span>
+      <button class="btn sm" id="sortBtn" type="button" style="margin-left:auto">並び: 危険度順</button>
+    </div>
+    <p class="lede">セルは、その攻撃タイプを受けたときの倍率です。複合タイプは2つの倍率を掛け合わせるので、<span class="num">×4</span> や <span class="num">×¼</span> が生まれます。</p>
+    <div class="scroller"><table class="matrix" id="matrix"></table></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>攻撃カバレッジ</h2><span class="hint">各メンバーが自分のタイプで殴ると仮定</span></div>
+    <p class="lede">守りだけ固めても、相手を崩せなければ詰みます。パーティの持つタイプで「抜群（2倍以上）」を取れる範囲を数えます。</p>
+    <div class="cov" id="cov"></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>補完の提案</h2><span class="hint" id="sugHint"></span></div>
+    <p class="lede">単タイプ18通り＋複合153通り＝<span class="num">171型</span>をすべて試し、危険タイプが最も減る構成を選びます。パーティが6体埋まっているときは、どの枠を差し替えるかも含めて総当たりします。</p>
+    <div class="sug" id="sug"></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>資料</h2></div>
+    <details class="box">
+      <summary>タイプ相性表（18×18・行が攻撃側）</summary>
+      <div class="body">
+        <div class="scroller" style="border:0;background:transparent;border-radius:0"><table class="full" id="fullChart"></table></div>
+        <p class="note">空欄は等倍。<span class="num">2</span>＝抜群、<span class="num">½</span>＝半減、<span class="num">0</span>＝無効。</p>
+      </div>
+    </details>
+    <details class="box">
+      <summary>このツールの中身（計算のしくみ）</summary>
+      <div class="body prose" id="explain"></div>
+    </details>
+  </section>
+
+  <footer>
+    データ出典: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a>（2026-09-17 時点のスナップショットを埋め込み。実行時の通信はありません）。
+    収録 <span class="num" id="cnt"></span> 体 ― <span id="cntBreak"></span>。<br>
+    レギュレーション情報の出典: <span id="regSources"></span>。<br>
+    ポケモンは株式会社ポケモン／任天堂の登録商標です。本ページは非公式のファンツールです。
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ============================================================================
+ * タイプ相性ラボ
+ * ---------------------------------------------------------------------------
+ * 構成:
+ *   1. データ層     … ビルド時に埋め込んだ PokéAPI のスナップショット
+ *   2. 相性計算     … 純粋関数のみ。DOM に触らないのでそのままテストできる
+ *   3. パーティ分析 … 防御行列 / 判定 / スコア / 攻撃カバレッジ
+ *   4. 補完探索     … 171型の全探索（6体のときは 6枠 × 171型 = 1026通り）
+ *   5. 状態と描画   … 素の DOM 操作
+ * ==========================================================================*/
+
+const DATA = __DATA__;
+
+/* === 1. データ層 ========================================================= */
+
+const TYPES = DATA.types;   // [{id, ja, en}] × 18
+const CHART = DATA.chart;   // CHART[攻撃index][防御index] = 0 | 0.5 | 1 | 2
+const NT    = TYPES.length;
+
+/** 検索キーの正規化。NFKC で「メガリザードンＸ」の全角Ｘを半角に寄せる。 */
+const norm = s => s.normalize("NFKC").toLowerCase();
+
+const KIND_LABEL = { 1: "メガ", 2: "フォルム" };   // 0 は原種（バッジなし）
+
+const REG = DATA.regulation;          // 現行レギュレーション（ビルド時に解決済み）
+const POOL = new Set(REG.species);    // 使用可能な species id
+
+const POKEMON = DATA.pokemon.map(([name, t1, t2, gen, legend, roma, kind, sid, legal], i) => ({
+  i, name, gen, kind,
+  sid,                                // species id。同族判定に使う
+  legal: legal === 1,                 // レギュ使用可。ビルド時にフォルム単位で判定済み
+  legend: legend === 1,
+  types: t2 < 0 ? [t1] : [t1, t2],
+  key: norm(name + " " + roma),
+}));
+
+// タイプの表示色。ページのクロームは無彩色に寄せてあるので、彩度はここ（＝データ）にしか出さない。
+const TYPE_COLOR = ["#9099a1","#ce4069","#8fa8dd","#ab6ac8","#d97845","#c7b78b",
+                    "#90c12c","#5269ac","#5a8ea1","#ff9d55","#4d90d5","#63bb5b",
+                    "#f3d23b","#fa7179","#74cec0","#0c69c8","#5a5366","#ec8fe6"];
+
+/** 背景色に対して黒字か白字かを相対輝度（WCAG の式）から決める */
+function readableInk(hex) {
+  const c = [1, 3, 5].map(o => {
+    const v = parseInt(hex.slice(o, o + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  const L = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  return L > 0.42 ? "#16201d" : "#ffffff";
+}
+const TYPE_INK = TYPE_COLOR.map(readableInk);
+
+/** タイプ構成の正規化キー。"11" や "3-11" */
+function typeKey(ts) { return [...ts].sort((a, b) => a - b).join("-"); }
+
+// 型キー → その型を持つ実在ポケモン。提案の裏取りに使う。
+const BY_KEY = new Map();
+for (const p of POKEMON) {
+  const k = typeKey(p.types);
+  if (!BY_KEY.has(k)) BY_KEY.set(k, []);
+  BY_KEY.get(k).push(p);
+}
+
+/* === 2. 相性計算（純粋関数） ============================================= */
+
+/** 防御タイプ defTypes が、攻撃タイプ atk から受ける倍率。複合は積。 */
+function multiplier(atk, defTypes) {
+  let m = 1;
+  for (let i = 0; i < defTypes.length; i++) m *= CHART[atk][defTypes[i]];
+  return m;
+}
+
+/** 倍率 → 耐性の価値。log2 なので ×2 が -1、×½ が +1 と対称になる。無効だけ別枠で +3。 */
+function resistValue(m) { return m === 0 ? 3 : -Math.log2(m); }
+
+/**
+ * 1タイプ分の判定ルール（行列の凡例と一致させること）
+ *   危険 … 弱点2体以上、かつ半減できる味方が1体以下（誰も安全に受けられない）
+ *   注意 … 弱点の数が受け皿の数を上回っている
+ *   手薄 … 弱点はないが、半減できる味方も1体もいない
+ *   安定 … それ以外
+ */
+function judge(weak, res) {
+  if (weak >= 2 && res <= 1) return "danger";
+  if (weak > res)            return "caution";
+  if (res === 0)             return "thin";
+  return "safe";
+}
+
+const LEVEL_JA = { danger: "危険", caution: "注意", thin: "手薄", safe: "安定" };
+const ORDER    = { danger: 3, caution: 2, thin: 1, safe: 0 };
+
+const MUL_CLASS = new Map([[4, "m-x4"], [2, "m-x2"], [1, "m-x1"], [0.5, "m-h"], [0.25, "m-q"], [0, "m-x0"]]);
+const MUL_TEXT  = new Map([[4, "4"], [2, "2"], [1, "·"], [0.5, "½"], [0.25, "¼"], [0, "0"]]);
+
+/* === 3. パーティ分析 ===================================================== */
+
+/** 集計だけを返す軽量版。補完探索で千回以上まわすので中間オブジェクトを作らない。 */
+function summarize(party) {
+  let danger = 0, caution = 0, thin = 0, score = 0;
+  for (let t = 0; t < NT; t++) {
+    let weak = 0, res = 0;
+    for (let k = 0; k < party.length; k++) {
+      const m = multiplier(t, party[k].types);
+      if (m >= 2) weak++; else if (m <= 0.5) res++;
+      score += resistValue(m);
+    }
+    const lv = judge(weak, res);
+    if (lv === "danger") danger++; else if (lv === "caution") caution++; else if (lv === "thin") thin++;
+  }
+  return { danger, caution, thin, score };
+}
+
+/** 表示用のフル分析。18行ぶんの明細つき。 */
+function analyze(party) {
+  const rows = TYPES.map((ty, t) => {
+    const mults = party.map(m => multiplier(t, m.types));
+    const weak  = mults.filter(m => m >= 2).length;
+    const res   = mults.filter(m => m <= 0.5).length;
+    return {
+      t, ja: ty.ja, mults, weak, res,
+      level: judge(weak, res),
+      worst: mults.length ? Math.max(...mults) : 1,
+    };
+  });
+  return { rows, ...summarize(party), offense: offense(party) };
+}
+
+/** 攻撃側の網羅度。各メンバーが自分のタイプで殴る（＝タイプ一致技）と仮定。 */
+function offense(party) {
+  const atk = [...new Set(party.flatMap(m => m.types))];
+  if (!atk.length) {
+    return { atk, uncovered: TYPES.map((_, i) => i), comboHit: 0, comboTotal: 171 };
+  }
+  const best = defTypes => Math.max(...atk.map(a => multiplier(a, defTypes)));
+
+  const uncovered = [];
+  for (let d = 0; d < NT; d++) if (best([d]) < 2) uncovered.push(d);
+
+  // 単タイプ18 + 複合153 = 171型すべてに対して抜群が取れるか
+  let hit = 0, total = 0;
+  for (let i = 0; i < NT; i++) {
+    for (let j = i; j < NT; j++) {
+      total++;
+      if (best(i === j ? [i] : [i, j]) >= 2) hit++;
+    }
+  }
+  return { atk, uncovered, comboHit: hit, comboTotal: total };
+}
+
+/* === 4. 補完探索 ========================================================= */
+
+/** 候補となる171型（単タイプ18 + 複合153） */
+const CANDIDATES = (() => {
+  const out = [];
+  for (let i = 0; i < NT; i++) { out.push([i]); for (let j = i + 1; j < NT; j++) out.push([i, j]); }
+  return out;
+})();
+
+/** 良さの序列。危険→注意→手薄の順に減らし、同点ならスコアが高いほう。 */
+function rankKey(s) { return [s.danger, s.caution, s.thin, -s.score]; }
+function cmpKey(a, b) { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; }
+
+/**
+ * 追加（空きがあるとき）または入れ替え（6体のとき）の最善手を探す。
+ * 計算量: 追加 = 171通り、入れ替え = 6 × 171 = 1026通り。どちらも 1 フレームで終わる。
+ */
+function suggest(party, base) {
+  if (!party.length) return [];
+  const out = [];
+
+  if (party.length < 6) {
+    for (const c of CANDIDATES) out.push({ mode: "add", types: c, s: summarize([...party, { types: c }]) });
+  } else {
+    const next = party.slice();
+    for (let slot = 0; slot < party.length; slot++) {
+      const keep = next[slot];
+      for (const c of CANDIDATES) {
+        next[slot] = { types: c };
+        out.push({ mode: "swap", slot, types: c, s: summarize(next) });
+      }
+      next[slot] = keep;
+    }
+  }
+  out.sort((a, b) => cmpKey(rankKey(a.s), rankKey(b.s)));
+
+  // 同じ型が複数スロットぶん並ぶので、型ごとに最善の1件だけ残す
+  const seen = new Map();
+  for (const r of out) { const k = typeKey(r.types); if (!seen.has(k)) seen.set(k, r); }
+
+  return [...seen.values()].slice(0, 5).map(r => ({
+    ...r,
+    delta: {
+      danger:  r.s.danger  - base.danger,
+      caution: r.s.caution - base.caution,
+      thin:    r.s.thin    - base.thin,
+      score:   r.s.score   - base.score,
+    },
+    // 実例は原種を先に。メガでしか実現しない型もあるので、原種がなければメガを出す。
+    // 実例はレギュ使用可 → 原種 の順に優先する
+    examples: (BY_KEY.get(typeKey(r.types)) || [])
+      .filter(p => !p.legend)
+      .sort((a, b) => (b.legal - a.legal) || (a.kind - b.kind) || (a.i - b.i))
+      .slice(0, 4),
+  }));
+}
+
+/* === 4.5 レギュレーション判定 ============================================ */
+
+/**
+ * パーティが現行レギュレーションのチーム構築ルールを満たしているか。
+ * 判定するのは「構築時に静的に分かること」だけ ― 持ち物・技・とくせいは扱わない。
+ */
+function checkRules(party) {
+  const R = REG.rules;
+  const mons = party.filter(m => m.mon);                 // 型のみの仮枠は判定対象外
+  const virtual = party.length - mons.length;
+
+  const illegal = mons.filter(m => !m.mon.legal);
+  const bySpecies = new Map();
+  for (const m of mons) bySpecies.set(m.mon.sid, (bySpecies.get(m.mon.sid) || 0) + 1);
+  const dupes = mons.filter(m => bySpecies.get(m.mon.sid) > 1);
+
+  const out = [];
+  out.push({
+    id: "size",
+    ok: party.length >= R.teamMin && party.length <= R.teamMax,
+    label: `チーム ${R.teamMin}〜${R.teamMax} 体`,
+    detail: `現在 ${party.length} 体`,
+  });
+  if (R.speciesClause) out.push({
+    id: "species",
+    ok: dupes.length === 0,
+    label: "同じポケモンは1体まで",
+    detail: dupes.length ? [...new Set(dupes.map(m => m.name))].join("、") + " が重複" : "重複なし",
+  });
+  out.push({
+    id: "pool",
+    ok: illegal.length === 0,
+    na: virtual > 0 && mons.length === 0,
+    label: `${REG.id} で使用可`,
+    detail: illegal.length ? illegal.map(m => m.name).join("、") + " が対象外"
+          : virtual ? `${virtual} 枠が仮枠（判定対象外）` : "全員使用可",
+  });
+  return out;
+}
+
+/** 期間を過ぎていればデータが古い可能性がある、と分かるようにする */
+function regulationStatus(today = new Date()) {
+  const d = today.toISOString().slice(0, 10);
+  const daysLeft = Math.ceil((new Date(REG.end) - today) / 86400000);
+  return { today: d, before: d < REG.start, expired: d > REG.end, daysLeft };
+}
+
+/* === 5. 状態 ============================================================= */
+
+const STORE_KEY = "type-lab-party-v2";
+const SAMPLE = ["ガブリアス", "リザードン", "カビゴン", "ゲンガー", "ギャラドス", "サンダース"];
+
+let party = [];          // [{ types:number[], name:string, mon:object|null }]
+let sortMode = "risk";
+
+const memberOfMon   = p  => ({ types: p.types, name: p.name, mon: p });
+const memberOfTypes = ts => ({ types: ts, name: ts.map(t => TYPES[t].ja).join("・"), mon: null });
+
+function loadSample() {
+  party = SAMPLE.map(n => POKEMON.find(p => p.name === n)).filter(Boolean).map(memberOfMon);
+}
+
+function save() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(party.map(m => m.mon ? { i: m.mon.i } : { t: m.types })));
+  } catch (e) { /* プライベートウィンドウなどでは黙って諦める */ }
+}
+function load() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    if (!Array.isArray(arr) || !arr.length) return false;
+    party = arr
+      .map(e => (e && typeof e.i === "number" && POKEMON[e.i]) ? memberOfMon(POKEMON[e.i])
+              : (e && Array.isArray(e.t) && e.t.length)        ? memberOfTypes(e.t)
+              : null)
+      .filter(Boolean)
+      .slice(0, 6);
+    return party.length > 0;
+  } catch (e) { return false; }
+}
+
+/* === 6. 描画 ============================================================= */
+
+const $  = id => document.getElementById(id);
+const el = (tag, cls, txt) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (txt != null) n.textContent = txt;
+  return n;
+};
+
+function kindChip(kind) {
+  return kind ? el("span", "kchip k" + kind, KIND_LABEL[kind]) : null;
+}
+
+function typeChip(t) {
+  const c = el("span", "tchip", TYPES[t].ja);
+  c.style.background = TYPE_COLOR[t];
+  c.style.color = TYPE_INK[t];
+  return c;
+}
+
+function render() {
+  const a = analyze(party);
+  renderReadout(a);
+  renderSlots();
+  renderRules();
+  renderMatrix(a);
+  renderCoverage(a);
+  renderSuggest(a);
+  renderResults();
+  $("barNote").textContent = party.length
+    ? `${party.length}/6 体 ・ 危険 ${a.danger} タイプ`
+    : "パーティ未設定";
+  save();
+}
+
+function renderReadout(a) {
+  const box = $("readout");
+  box.textContent = "";
+  const avg = party.length ? a.score / party.length : 0;
+  const cov = a.offense.comboTotal ? a.offense.comboHit / a.offense.comboTotal : 0;
+
+  const stats = [
+    { k: "危険タイプ", v: a.danger, u: "/ 18", sub: "受け皿がいない攻撃タイプ",
+      tone: a.danger >= 3 ? "is-crit" : a.danger ? "is-warn" : "is-good" },
+    { k: "要注意タイプ", v: a.caution, u: "/ 18", sub: "弱点が受け皿を上回る",
+      tone: a.caution >= 4 ? "is-warn" : "" },
+    { k: "耐性スコア", v: (avg >= 0 ? "+" : "") + avg.toFixed(1), u: "/体", sub: "1体あたり。0 が全等倍",
+      tone: avg >= 4 ? "is-good" : avg < 1.5 ? "is-warn" : "" },
+    { k: "攻撃カバー", v: Math.round(cov * 100), u: "%",
+      sub: `171型のうち ${a.offense.comboHit} 型に抜群`,
+      tone: cov >= 0.8 ? "is-good" : cov < 0.5 ? "is-warn" : "" },
+  ];
+  for (const s of stats) {
+    const d = el("div", "stat " + (s.tone || ""));
+    const v = el("div", "v");
+    v.append(document.createTextNode(String(s.v)), el("span", "u", s.u));
+    d.append(el("div", "k", s.k), v, el("div", "sub", s.sub));
+    box.append(d);
+  }
+}
+
+function renderRegbar() {
+  const box = $("regbar");
+  box.textContent = "";
+  const st = regulationStatus();
+  box.append(el("span", "badge", REG.game));
+  box.append(el("span", null, REG.label));
+  box.append(el("span", "period", `${REG.start} → ${REG.end}`));
+  if (st.expired) {
+    box.append(el("span", "stale", "期間終了 ― 新レギュレーションのデータに更新してください"));
+  } else if (st.before) {
+    box.append(el("span", "stale", "開始前"));
+  } else {
+    box.append(el("span", null, `残り ${st.daysLeft} 日`));
+  }
+  box.append(el("span", null, `使用可 ${POKEMON.filter(p => p.legal).length} 件 / ${POKEMON.length} 件`));
+  box.append(el("span", "period", `データ取得 ${REG.builtAt}`));
+}
+
+function renderRules() {
+  const box = $("rules");
+  box.textContent = "";
+  for (const r of checkRules(party)) {
+    const c = el("div", "rchip " + (r.na ? "na" : r.ok ? "ok" : "ng"));
+    c.append(el("span", "mark", r.na ? "–" : r.ok ? "✓" : "✕"));
+    const t = el("span");
+    t.append(document.createTextNode(r.label));
+    const d = el("span", null, "　" + r.detail);
+    d.style.opacity = ".75";
+    t.append(d);
+    c.append(t);
+    box.append(c);
+  }
+}
+
+function renderSlots() {
+  const box = $("slots");
+  box.textContent = "";
+  party.forEach((m, i) => {
+    const s = el("div", "slot");
+    s.append(el("span", "idx", String(i + 1)));
+
+    const nm = el("div", "nm");
+    nm.append(document.createTextNode(m.name));
+    if (!m.mon) nm.append(el("span", "sub", "型のみの仮枠"));
+    else if (m.mon.kind) nm.append(document.createTextNode(" "), kindChip(m.mon.kind));
+    if (m.mon && !m.mon.legal) {
+      s.classList.add("illegal");
+      nm.append(document.createTextNode(" "), el("span", "kchip ng", REG.id + " 不可"));
+    }
+    s.append(nm);
+
+    const ch = el("div", "chips");
+    m.types.forEach(t => ch.append(typeChip(t)));
+    s.append(ch);
+
+    const rm = el("button", "rm", "×");
+    rm.type = "button";
+    rm.setAttribute("aria-label", m.name + " を外す");
+    rm.onclick = () => { party.splice(i, 1); render(); };
+    s.append(rm);
+    box.append(s);
+  });
+  for (let i = party.length; i < 6; i++) box.append(el("div", "slot empty", `${i + 1} ― 空き`));
+}
+
+function renderMatrix(a) {
+  const table = $("matrix");
+  table.textContent = "";
+
+  const rows = sortMode === "risk"
+    ? a.rows.slice().sort((x, y) =>
+        (ORDER[y.level] - ORDER[x.level]) || (y.worst - x.worst) || (y.weak - x.weak) || (x.t - y.t))
+    : a.rows;
+
+  const thead = el("thead"), htr = el("tr");
+  htr.append(el("th", "h-type", "攻撃タイプ"));
+  party.forEach((m, i) => {
+    const th = el("th", "h-mon");
+    th.title = m.name;
+    th.append(el("span", "n", String(i + 1)), el("span", "mn", m.name));
+    htr.append(th);
+  });
+  htr.append(el("th", "h-bar", "弱/耐"), el("th", "h-j", "判定"));
+  thead.append(htr);
+  table.append(thead);
+
+  const tb = el("tbody");
+  const n = Math.max(party.length, 1);
+  for (const r of rows) {
+    const tr = el("tr", "row lvl-" + r.level);
+
+    const tn = el("td", "t-name");
+    tn.append(typeChip(r.t));
+    tr.append(tn);
+
+    r.mults.forEach(m => {
+      const td = el("td", "cell");
+      const sp = el("span", "m " + (MUL_CLASS.get(m) || "m-x1"), MUL_TEXT.get(m) ?? String(m));
+      sp.title = "×" + m;
+      td.append(sp);
+      tr.append(td);
+    });
+
+    const bd = el("td", "bar");
+    const bw = el("div", "barwrap");
+    const w = el("i", "w"); w.style.width = (r.weak / n * 100) + "%";
+    const g = el("i", "r"); g.style.width = (r.res  / n * 100) + "%";
+    bw.append(w, g);
+    bd.append(bw, el("span", "cnt", `${r.weak} / ${r.res}`));
+    tr.append(bd);
+
+    const jd = el("td", "judge");
+    jd.append(el("span", "jchip j-" + r.level, LEVEL_JA[r.level]));
+    tr.append(jd);
+
+    tb.append(tr);
+  }
+  table.append(tb);
+}
+
+function renderLegend() {
+  const L = $("legend");
+  L.textContent = "";
+  [[4, "4倍"], [2, "2倍"], [1, "等倍"], [0.5, "半減"], [0.25, "¼"], [0, "無効"]].forEach(([m, label]) => {
+    const w = el("span");
+    w.append(el("span", "m " + MUL_CLASS.get(m), MUL_TEXT.get(m)), document.createTextNode(label));
+    L.append(w);
+  });
+  L.append(el("span", null, "判定 ― 危険: 弱点2体以上かつ半減1体以下／注意: 弱点 > 受け皿／手薄: 半減できる味方ゼロ"));
+}
+
+function renderCoverage(a) {
+  const box = $("cov");
+  box.textContent = "";
+  const o = a.offense;
+  const pct = o.comboTotal ? o.comboHit / o.comboTotal : 0;
+
+  const p1 = el("div", "panel");
+  p1.append(el("h3", null, "全171型への抜群率"), el("div", "big", Math.round(pct * 100) + "%"));
+  const g = el("div", "gauge"), gi = el("i");
+  gi.style.width = (pct * 100) + "%";
+  g.append(gi);
+  p1.append(g, el("div", "note", `${o.comboHit} / ${o.comboTotal} 型に 2倍以上を取れます`));
+  box.append(p1);
+
+  const p2 = el("div", "panel");
+  p2.append(el("h3", null, "抜群を取れない単タイプ"));
+  if (!o.uncovered.length) {
+    const d = el("div", "note", "18タイプすべてに抜群を取れます。");
+    d.style.color = "var(--good)";
+    p2.append(d);
+  } else {
+    const c = el("div", "chips");
+    c.style.marginTop = "9px";
+    o.uncovered.forEach(t => c.append(typeChip(t)));
+    p2.append(c, el("div", "note", `${o.uncovered.length} タイプ。等倍以下でしか殴れない相手です。`));
+  }
+  box.append(p2);
+
+  const p3 = el("div", "panel");
+  p3.append(el("h3", null, "パーティが持つ攻撃タイプ"));
+  const c3 = el("div", "chips");
+  c3.style.marginTop = "9px";
+  o.atk.slice().sort((x, y) => x - y).forEach(t => c3.append(typeChip(t)));
+  p3.append(c3, el("div", "note", `${o.atk.length} 種類。重複が多いほどカバー範囲は狭くなります。`));
+  box.append(p3);
+}
+
+function renderSuggest(a) {
+  const box = $("sug");
+  box.textContent = "";
+
+  if (!party.length) {
+    $("sugHint").textContent = "";
+    const d = el("div", "panel", "パーティを1体以上入れると提案が出ます。");
+    d.style.color = "var(--muted)";
+    box.append(d);
+    return;
+  }
+
+  const swap = party.length === 6;
+  $("sugHint").textContent = swap ? "6体埋まっているので入れ替え案" : `${party.length + 1} 体目として`;
+
+  const delta = (v, label) => {
+    const w = el("span");
+    w.append(document.createTextNode(label + " "),
+             el("b", v < 0 ? "up" : v > 0 ? "down" : null, (v > 0 ? "+" : "") + v));
+    return w;
+  };
+
+  suggest(party, a).forEach((r, i) => {
+    const row = el("div", "sugrow" + (i === 0 ? " top" : ""));
+    row.append(el("div", "rank", String(i + 1)));
+
+    const main = el("div", "sugmain");
+    const head = el("div", "chips");
+    r.types.forEach(t => head.append(typeChip(t)));
+    if (swap) head.append(el("span", "swapnote", "← " + party[r.slot].name + " と交代"));
+    main.append(head);
+
+    const d = el("div", "sugdelta");
+    d.append(delta(r.delta.danger, "危険"), document.createTextNode("　"),
+             delta(r.delta.caution, "注意"), document.createTextNode("　"),
+             delta(r.delta.thin, "手薄"), document.createTextNode("　"));
+    const sc = el("span");
+    sc.append(document.createTextNode("スコア "),
+              el("b", r.delta.score > 0 ? "up" : r.delta.score < 0 ? "down" : null,
+                 (r.delta.score > 0 ? "+" : "") + r.delta.score.toFixed(1)));
+    d.append(sc);
+    main.append(d, el("div", "sugex", r.examples.length
+      ? "例: " + r.examples.map(p => p.name).join("、")
+      : "この組み合わせを持つポケモンは（伝説・幻を除くと）いません"));
+    row.append(main);
+
+    const btn = el("button", "btn sm" + (i === 0 ? " primary" : ""), swap ? "入れ替える" : "この枠を追加");
+    btn.type = "button";
+    btn.onclick = () => {
+      const m = r.examples.length ? memberOfMon(r.examples[0]) : memberOfTypes(r.types);
+      if (swap) party[r.slot] = m; else party.push(m);
+      render();
+    };
+    row.append(btn);
+    box.append(row);
+  });
+}
+
+function renderResults() {
+  const q = norm($("q").value.trim());
+  const box = $("results");
+  box.textContent = "";
+
+  if (!q) {
+    $("resNote").textContent = "名前の一部・ローマ字・タイプ名で絞り込めます。";
+    return;
+  }
+  const full = party.length >= 6;
+  const forms = $("incForms").checked;
+  const legalOnly = $("legalOnly").checked;
+  const hits = POKEMON.filter(p =>
+    (forms || p.kind === 0) &&
+    (!legalOnly || p.legal) &&
+    (p.key.includes(q) ||
+     p.types.some(t => TYPES[t].ja.includes(q) || TYPES[t].en.toLowerCase() === q))
+  );
+  const shown = hits.slice(0, 80);
+
+  for (const p of shown) {
+    const b = el("button", "res");
+    b.type = "button";
+    b.disabled = full;
+    const sw = el("span", "swatch");
+    p.types.forEach(t => {
+      const s = el("span", "sq");
+      s.style.background = TYPE_COLOR[t];
+      sw.append(s);
+    });
+    b.append(sw, document.createTextNode(p.name));
+    if (p.kind) b.append(kindChip(p.kind));
+    if (!p.legal) b.append(el("span", "kchip ng", REG.id + " 不可"));
+    b.onclick = () => { if (party.length < 6) { party.push(memberOfMon(p)); render(); } };
+    box.append(b);
+  }
+  $("resNote").textContent = !hits.length ? "見つかりませんでした。"
+    : full ? "パーティが満員です。どれか外してから追加してください。"
+    : `${hits.length} 件${hits.length > shown.length ? `（先頭 ${shown.length} 件を表示）` : ""}`;
+}
+
+function renderFullChart() {
+  const t = $("fullChart");
+  t.textContent = "";
+  const head = el("tr");
+  head.append(el("th", "h", "攻 ＼ 防"));
+  TYPES.forEach(ty => head.append(el("th", "v", ty.ja)));
+  t.append(head);
+
+  TYPES.forEach((atk, i) => {
+    const tr = el("tr");
+    tr.append(el("th", "h", atk.ja));
+    TYPES.forEach((def, j) => {
+      const v = CHART[i][j];
+      const td = el("td",
+        v === 2 ? "f2" : v === 0 ? "f0" : v === 0.5 ? "fh" : "f1",
+        v === 2 ? "2" : v === 0 ? "0" : v === 0.5 ? "½" : "");
+      td.title = `${atk.ja} → ${def.ja} : ×${v}`;
+      tr.append(td);
+    });
+    t.append(tr);
+  });
+}
+
+/* === 7. 起動 ============================================================= */
+
+$("explain").innerHTML = `
+<h4>1. 相性は掛け算にすぎない</h4>
+<p>18×18 の表 <code>CHART[攻撃][防御]</code> に <code>0 / 0.5 / 1 / 2</code> が入っているだけです。複合タイプの被ダメージは2つを掛けるので、ループ1本で終わります。<code>×4</code> や <code>×¼</code> はこの積から自然に生まれるもので、特別な分岐は要りません。</p>
+
+<h4>2. スコアは log2 で対称にする</h4>
+<p>倍率をそのまま足すと <code>×2</code>（+1）と <code>×½</code>（-0.5）が非対称になり、弱点1つが半減1つで釣り合いません。<code>-log2(m)</code> を使うと <code>×2 → -1</code>、<code>×½ → +1</code> ときれいに対称になります。無効（<code>×0</code>）だけは対数が発散するので、価値 <code>+3</code> の特別扱いです。</p>
+
+<h4>3. 平均より「穴」を見る</h4>
+<p>耐性スコアの平均が高くても、6体そろって同じタイプに弱ければ壊滅します。そこでスコアとは別に、タイプごとの<b>弱点数と受け皿数</b>から4段階の判定を出しています。1つの指標に丸めず、性質の違う数字を並べて置くのが要点です。</p>
+
+<h4>4. 補完は素直に全探索</h4>
+<p>候補は単タイプ18＋複合153＝<code>171</code>型。6体埋まっているときは「どの枠を差し替えるか」も含めて <code>6 × 171 = 1026</code> 通り。1回の評価が <code>18タイプ × 6体 = 108</code> 回の掛け算なので、全部で約11万回です。この規模ならブラウザで一瞬なので、賢い枝刈りを考えるより全部試すほうが速くて確実です。</p>
+
+<h4>5. 答えを決めているのは評価関数</h4>
+<p>候補の並べ替えは <code>[危険数, 注意数, 手薄数, -スコア]</code> の辞書式比較です。だから提案の順位は、スコアが下の案が上に来ることがあります（先に手薄を潰しているため）。この優先順位を変えると提案の性格が変わります ― 「スコア最優先」にすると、穴を残したまま平均だけ高い構成を薦めてきます。最適化の質はアルゴリズムより評価関数で決まる、という分かりやすい例です。</p>
+
+<h4>6. データはビルド時に固める</h4>
+<p>PokéAPI の GraphQL から ${POKEMON.length} 件を取得し、<code>[名前, 型1, 型2, 世代, 伝説フラグ, ローマ字, 種別]</code> の配列に圧縮して HTML に直接埋め込んでいます（約40KB）。収録ルールは「原種 + メガシンカ/ゲンシカイキは全件 + それ以外のフォルムは原種とタイプが違うものだけ」― メガは同じタイプでもパーティ編成上の別個体として扱い、トーテムフォルムのような見た目だけの差分は落としています。実行時の通信がゼロなので、オフラインでも動き、レート制限も CORS も考えずに済みます。「動的に取りにいく」より「ビルド時に固める」ほうが良い場面は多いです。</p>
+
+<h4>7. レギュレーションは「定義」だけ持ち、中身は引いてくる</h4>
+<p>${REG.game} のレギュレーションは3〜4か月で入れ替わります。使用可能ポケモンをコードに直書きすると毎回その一覧を書き換えることになるので、<code>regulations.json</code> には期間とルール（チーム${REG.rules.teamMin}〜${REG.rules.teamMax}体、同族1体まで、レベル${REG.rules.level}固定）だけを書き、実際のロースター ${REG.species.length} 種は PokéAPI の図鑑（<code>pokedex id = ${DATA.regulation.pokedexId ?? 36}</code>、内部名 champions）から解決しています。新レギュレーションが来たら <code>node update.mjs</code> を叩くと、最新ロースターを取り込んで前回との差分を出します。</p>
+<h4>8. フォルム単位の可否は、別のテーブルから復元する</h4>
+<p>図鑑が教えてくれるのは「種」までで、メガやリージョンフォルムが使えるかは分かりません。そこで <code>${REG.game}</code> の技マシン習得表（version group ${DATA.regulation.pokedexId === 36 ? 32 : "?"}）を引いています。<b>そのソフトに技データがある姿＝実装されている姿</b>という筋で、メガ ${POKEMON.filter(p => p.legal && p.kind === 1).length} 件とリージョンフォルム ${POKEMON.filter(p => p.legal && p.kind === 2).length} 件をフォルム単位で確定させました。</p>
+<p>ただし PokéAPI の習得表は図鑑より更新が遅れます。実際、ロースターに入ったばかりの ${REG.laggingSpecies} 種はまだ技データがありません。この種については「取りこぼすより拾いすぎるほうがまし」と考えて、種単位で使用可としています。それでも漏れるもの（既存種に後から追加されたメガなど）は <code>regulations.json</code> の <code>formOverrides</code> に手で書きます ― 現在 ${REG.overrides.length} 件。綴りを間違えると効かないので、一致しなかった override はビルド時に警告します。</p>
+<p>3つの情報源を重ねているので、どれが効いたかは常に追えます: <b>図鑑</b>（種の在否・最新）→ <b>習得表</b>（姿の在否・やや遅れる）→ <b>手動リスト</b>（どちらも間に合っていない分）。</p>
+`;
+
+$("q").addEventListener("input", renderResults);
+$("sample").onclick = () => { loadSample(); $("q").value = ""; render(); };
+$("clear").onclick  = () => { party = []; render(); };
+$("sortBtn").onclick = e => {
+  sortMode = sortMode === "risk" ? "type" : "risk";
+  e.currentTarget.textContent = "並び: " + (sortMode === "risk" ? "危険度順" : "タイプ順");
+  render();
+};
+
+const KIND_COUNT = POKEMON.reduce((m, p) => (m[p.kind] = (m[p.kind] || 0) + 1, m), {});
+$("cnt").textContent = POKEMON.length.toLocaleString("ja-JP");
+$("cntBreak").textContent =
+  `原種 ${(KIND_COUNT[0] || 0).toLocaleString("ja-JP")} 体、メガシンカ・ゲンシカイキ ${KIND_COUNT[1] || 0} 件、` +
+  `原種とタイプが異なるリージョンフォルム等 ${KIND_COUNT[2] || 0} 件`;
+$("incForms").addEventListener("change", renderResults);
+$("legalOnly").addEventListener("change", renderResults);
+$("legalOnlyLabel").textContent = `${REG.id} で使用可のみ`;
+$("regSources").textContent = REG.sources.join(" ／ ");
+renderRegbar();
+if (!load()) loadSample();
+renderLegend();
+renderFullChart();
+render();
+</script>
