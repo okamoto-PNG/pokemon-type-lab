@@ -15,6 +15,49 @@ async function q(query) {
   return j.data;
 }
 
+/**
+ * タイプ相性そのものを書き換えるとくせい。PokéAPI は効果文を自然言語でしか持たないので、
+ * ここだけは手で持つ。スラッグで書いて id はビルド時に解決する（綴り違いは起動時に落ちる）。
+ *   immune  … そのタイプを無効化
+ *   mul     … そのタイプの倍率を掛け算で補正
+ *   se      … 効果抜群(2倍以上)を受けるときだけ掛かる係数
+ *   wonder  … 効果抜群以外を全て無効（ふしぎなまもり）
+ */
+const ABILITY_FX = {
+  'levitate':        { immune: ['ground'] },
+  'earth-eater':     { immune: ['ground'] },
+  'flash-fire':      { immune: ['fire'] },
+  'well-baked-body': { immune: ['fire'] },
+  'water-absorb':    { immune: ['water'] },
+  'storm-drain':     { immune: ['water'] },
+  'dry-skin':        { immune: ['water'], mul: { fire: 1.25 } },
+  'volt-absorb':     { immune: ['electric'] },
+  'motor-drive':     { immune: ['electric'] },
+  'lightning-rod':   { immune: ['electric'] },
+  'sap-sipper':      { immune: ['grass'] },
+  'heatproof':       { mul: { fire: 0.5 } },
+  'water-bubble':    { mul: { fire: 0.5 } },
+  'thick-fat':       { mul: { fire: 0.5, ice: 0.5 } },
+  'fluffy':          { mul: { fire: 2 } },
+  'purifying-salt':  { mul: { ghost: 0.5 } },
+  'solid-rock':      { se: 0.75 },
+  'filter':          { se: 0.75 },
+  'prism-armor':     { se: 0.75 },
+  'wonder-guard':    { wonder: true },
+};
+
+/** きのみ以外で相性に効く持ち物 */
+const ITEM_FX = {
+  'air-balloon': { mode: 'immune', type: 'ground', note: '攻撃を受けると割れる' },
+  'iron-ball':   { mode: 'ground-flying',          note: 'ひこうのじめん無効を解除' },
+  'ring-target': { mode: 'no-immunity',            note: 'タイプによる無効をすべて解除' },
+};
+
+/** PokéAPI 側の欠損を埋める。埋まったら不要になるので、不要になったら知らせる。 */
+const ITEM_PATCH = {
+  'roseli-berry': { ja: 'ロゼルのみ', type: 'fairy' },
+};
+
 // --- 1. 18タイプの名前 ---
 const tn = await q(`{
   typename(where:{language_id:{_eq:1}, type_id:{_lte:18}}, order_by:{type_id:asc}) { type_id name }
@@ -24,6 +67,12 @@ const typeIds = tn.typename.map(t => t.type_id);
 const idx = new Map(typeIds.map((id, i) => [id, i]));
 const enMap = new Map(tn.en.map(t => [t.type_id, t.name]));
 const types = tn.typename.map(t => ({ id: t.type_id, ja: t.name, en: enMap.get(t.type_id) }));
+const tIdxByEn = new Map(types.map((t, i) => [t.en.toLowerCase(), i]));
+const toIdx = en => {
+  const i = tIdxByEn.get(en);
+  if (i == null) throw new Error(`未知のタイプ名: ${en}`);
+  return i;
+};
 
 // --- 2. 相性表 (デフォルト等倍、typeefficacy は等倍以外のみ収録) ---
 const chart = typeIds.map(() => typeIds.map(() => 1));
@@ -63,6 +112,7 @@ for (let off = 0; ; off += 1000) {
   const d = await q(`{ pokemon(limit:1000, offset:${off}, order_by:{id:asc}) {
     id is_default pokemon_species_id
     pokemontypes(order_by:{slot:asc}) { type_id }
+    pokemonabilities(order_by:{slot:asc}) { ability_id }
     pokemonspecy { generation_id is_legendary is_mythical pokemonspeciesnames(where:{language_id:{_in:[1,2]}}) { name language_id } }
     pokemonforms { name is_mega pokemonformnames(where:{language_id:{_eq:1}}) { name } }
   } }`);
@@ -157,10 +207,11 @@ for (const p of rows) {
   }
   seenSig.add(name + '|' + tkey);
   seenName.add(name);
-  out.push([name, idx.get(tids[0]), tids[1] != null ? idx.get(tids[1]) : -1, sp.generation_id, (sp.is_legendary||sp.is_mythical)?1:0, roma, kind, p.pokemon_species_id, isLegal(p) ? 1 : 0]);
+  out.push([name, idx.get(tids[0]), tids[1] != null ? idx.get(tids[1]) : -1, sp.generation_id, (sp.is_legendary||sp.is_mythical)?1:0, roma, kind, p.pokemon_species_id, isLegal(p) ? 1 : 0,
+             p.pokemonabilities.map(a => a.ability_id), p.pokemon_species_id]);
 }
-out.sort((a, b) => a[7] - b[7] || a[0].localeCompare(b[0], 'ja'));
-const pokemon = out.map(r => r.slice(0, 9));   // [..., species id, レギュ使用可フラグ]
+out.sort((a, b) => a[10] - b[10] || a[0].localeCompare(b[0], 'ja'));
+const pokemon = out.map(r => r.slice(0, 10));  // [..., species id, レギュ使用可, とくせいid配列]
 
 // 効かなかった override はスラッグの綴り間違い。黙って無視せず知らせる。
 const ovUnused = [...ovAllow, ...ovDeny].filter(x => !ovSeen.has(x));
@@ -195,7 +246,69 @@ expect('ドラゴン', 'フェアリー', 0); expect('かくとう', 'ゴース�
 expect('ノーマル', 'いわ', 0.5); expect('エスパー', 'あく', 0);
 console.error('相性表 OK');
 
-const data = { types, chart, pokemon, regulation };
+// --- 6. とくせいと持ち物 ---
+
+// 使われているとくせいの和名だけ持つ（ドロップダウン用）
+const usedAbilityIds = [...new Set(pokemon.flatMap(r => r[9]))].sort((a, b) => a - b);
+const abRes = await q(`{ ability(where:{id:{_in:[${usedAbilityIds}]}}) {
+  id name abilitynames(where:{language_id:{_eq:1}}) { name } } }`);
+const abilities = {};
+const abSlugToId = new Map();
+for (const a of abRes.ability) {
+  abilities[a.id] = a.abilitynames[0]?.name || a.name;
+  abSlugToId.set(a.name, a.id);
+}
+const noJa = abRes.ability.filter(a => !a.abilitynames[0]).length;
+console.error(`とくせい: ${abRes.ability.length} 件${noJa ? `（うち和名なし ${noJa} 件）` : ''}`);
+
+// 効果表のスラッグを id に解決する。綴り違いはここで落とす。
+const abilityFx = {};
+for (const [slug, fx] of Object.entries(ABILITY_FX)) {
+  const id = abSlugToId.get(slug);
+  if (id == null) { console.error(`! ABILITY_FX: "${slug}" はどのポケモンも持っていない（スキップ）`); continue; }
+  const out = {};
+  if (fx.immune) out.immune = fx.immune.map(toIdx);
+  if (fx.mul)    out.mul    = Object.fromEntries(Object.entries(fx.mul).map(([k, v]) => [toIdx(k), v]));
+  if (fx.se)     out.se     = fx.se;
+  if (fx.wonder) out.wonder = true;
+  abilityFx[id] = out;
+}
+console.error(`相性を書き換えるとくせい: ${Object.keys(abilityFx).length} 件`);
+
+// 半減きのみ（category 7）＋ 相性に効く持ち物
+const itemRes = await q(`{
+  berryItems: item(where:{item_category_id:{_eq:7}}, order_by:{id:asc}) {
+    name itemnames(where:{language_id:{_eq:1}}) { name } berries { natural_gift_type_id } }
+  special: item(where:{name:{_in:[${Object.keys(ITEM_FX).map(n => `"${n}"`)}]}}) {
+    name itemnames(where:{language_id:{_eq:1}}) { name } }
+}`);
+
+const items = [];
+const seenItem = new Set();
+const patchUsed = new Set();
+for (const it of itemRes.berryItems) {
+  if (seenItem.has(it.name)) continue;          // PokéAPI に重複行がある
+  const patch = ITEM_PATCH[it.name];
+  const ja = it.itemnames[0]?.name ?? patch?.ja;
+  const tid = it.berries[0]?.natural_gift_type_id;
+  const ti = tid != null && tid <= 18 ? idx.get(tid) : (patch?.type != null ? toIdx(patch.type) : null);
+  if (patch && (!it.itemnames[0] || tid == null)) patchUsed.add(it.name);
+  if (ja == null || ti == null) { console.error(`! きのみを解決できません: ${it.name}（和名=${ja} タイプ=${ti}）`); continue; }
+  seenItem.add(it.name);
+  // ホズのみだけは「効果抜群でなくても半減」する
+  items.push({ s: it.name, ja, t: ti, mode: it.name === 'chilan-berry' ? 'berry-always' : 'berry' });
+}
+for (const it of itemRes.special) {
+  const fx = ITEM_FX[it.name];
+  const ja = it.itemnames[0]?.name;
+  if (!ja) { console.error(`! 持ち物の和名がありません: ${it.name}`); continue; }
+  items.push({ s: it.name, ja, mode: fx.mode, t: fx.type != null ? toIdx(fx.type) : null, note: fx.note });
+}
+const patchUnused = Object.keys(ITEM_PATCH).filter(k => !patchUsed.has(k));
+if (patchUnused.length) console.error(`ITEM_PATCH が不要になりました（PokéAPI 側が直った可能性）: ${patchUnused.join(', ')}`);
+console.error(`持ち物: ${items.length} 件（半減きのみ ${items.filter(i => i.mode.startsWith('berry')).length} 件）`);
+
+const data = { types, chart, pokemon, regulation, abilities, abilityFx, items };
 const json = JSON.stringify(data);
 fs.writeFileSync(new URL('./pokedata.json', import.meta.url), json);
 if (dropped.length) console.error(`完全重複で除外: ${dropped.length} 件 → ${[...new Set(dropped)].join('、')}`);

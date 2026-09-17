@@ -1,4 +1,5 @@
-import { TYPES, POKEMON, multiplier, analyze, suggest, norm, REG, POOL, checkRules, regulationStatus } from './logic.mjs';
+import { TYPES, POKEMON, multiplier, analyze, suggest, norm, REG, POOL, checkRules, regulationStatus,
+         effMultiplier, berryEffect, ABILITY_JA, ABILITY_FX, ITEMS, ITEM_BY, mulText } from './logic.mjs';
 let fail = 0;
 const ok = (cond, msg) => { console.log((cond ? '  ok   ' : '  FAIL ') + msg); if (!cond) fail++; };
 const ti = ja => TYPES.findIndex(t => t.ja === ja);
@@ -75,6 +76,70 @@ ok(find('パオジアン') && !find('パオジアン').legal, 'パオジアン�
 ok(!rule(party.slice(0,3),'size').ok, '3 体はチームサイズNG（ダブルは4体以上）');
 ok(regulationStatus(new Date('2026-09-17')).expired === false, '2026-09-17 は期間内');
 ok(regulationStatus(new Date('2026-12-03')).expired === true, '2026-12-03 は期間切れを検出');
+
+console.log('\n■ とくせい・もちもの');
+const abId = ja => Number(Object.keys(ABILITY_JA).find(k => ABILITY_JA[k] === ja));
+const M = (name, ability, item) => ({ ...mon(name), ability: ability ? abId(ability) : null, item: item ?? null });
+const em = (atkJa, m) => effMultiplier(ti(atkJa), m);
+
+ok(ITEMS.length === 21, `相性に効く持ち物 ${ITEMS.length} 件（半減きのみ18＋特殊3）`);
+ok(ITEMS.filter(x => x.mode.startsWith('berry')).length === 18, '半減きのみ 18 種');
+ok(ITEM_BY.get('roseli-berry')?.ja === 'ロゼルのみ', 'PokéAPI に無いロゼルのみを補正できている');
+ok(TYPES[ITEM_BY.get('roseli-berry').t].ja === 'フェアリー', 'ロゼルのみ = フェアリー半減');
+ok(Object.keys(ABILITY_FX).length === 20, '相性を書き換えるとくせい 20 件');
+
+// とくせいは倍率に反映される
+ok(em('じめん', M('ゲンガー')) === 2, 'とくせい未指定なら素の倍率（じめん → ゲンガー ×2）');
+ok(em('じめん', M('ゲンガー', 'ふゆう')) === 0, 'ふゆう で じめん 無効');
+ok(em('ほのお', M('カビゴン', 'あついしぼう')) === 0.5, 'あついしぼう で ほのお 半減');
+ok(em('こおり', M('カビゴン', 'あついしぼう')) === 0.5, 'あついしぼう で こおり 半減');
+ok(em('みず', M('ギャラドス')) === 0.5, 'ギャラドス は素で みず 半減');
+{ // ハードロック系は効果抜群のときだけ 0.75
+  const t = { types: mon('ガブリアス').types, ability: abId('ハードロック'), item: null };
+  ok(em('こおり', t) === 3, 'ハードロック: こおり ×4 → ×3');
+  ok(em('ほのお', t) === 0.5, 'ハードロック: 抜群でなければ掛からない（ほのお → ガブリアス ×0.5 のまま）');
+}
+
+// 持ち物のうち「持ち続けるもの」は倍率に反映
+ok(em('じめん', M('ガブリアス', null, 'air-balloon')) === 0, 'ふうせん で じめん 無効');
+ok(em('じめん', M('リザードン')) === 0, 'リザードンは素で じめん 無効（ひこう）');
+ok(em('じめん', M('リザードン', null, 'iron-ball')) === 2, 'くろいてっきゅう で じめん が通る（×2）');
+ok(em('じめん', M('ゲンガー', 'ふゆう', 'iron-ball')) === 2, 'くろいてっきゅう は ふゆう も無効化する');
+ok(em('ノーマル', M('ゲンガー')) === 0, 'ノーマル → ゲンガー は無効');
+ok(em('ノーマル', M('ゲンガー', null, 'ring-target')) === 1, 'ねらいのまと で無効が解除される');
+
+// 半減きのみは倍率に混ぜず、注記として返す
+{
+  const g = M('ガブリアス', null, 'yache-berry');
+  const base = em('こおり', g);
+  ok(base === 4, 'きのみは実効倍率を変えない（こおり → ガブリアス は ×4 のまま）');
+  ok(berryEffect(ti('こおり'), g, base) === 2, 'ヤチェのみ: 初撃のみ ×2 と注記される');
+  ok(berryEffect(ti('ほのお'), g, em('ほのお', g)) === null, '対象外のタイプには注記が出ない');
+}
+{
+  const c = M('カビゴン', null, 'occa-berry');
+  ok(berryEffect(ti('ほのお'), c, em('ほのお', c)) === null, 'オッカのみは効果抜群でないと発動しない');
+  const h = M('カビゴン', null, 'chilan-berry');
+  ok(berryEffect(ti('ノーマル'), h, em('ノーマル', h)) === 0.5, 'ホズのみは等倍でも半減する');
+}
+
+// 行列に反映されるか
+{
+  const pt = [M('ゲンガー', 'ふゆう'), M('カビゴン'), M('リザードン'), M('ギャラドス')];
+  const row = analyze(pt).rows.find(r => r.ja === 'じめん');
+  ok(row.mults[0] === 0, '行列にも ふゆう が反映される');
+  ok(row.berries.every(b => b === null), 'きのみ未所持なら注記なし');
+}
+
+// アイテム条項
+{
+  const dup = [M('カビゴン', null, 'occa-berry'), M('ゲンガー', null, 'occa-berry'), M('リザードン'), M('ギャラドス')];
+  const r = checkRules(dup).find(x => x.id === 'item');
+  ok(r && !r.ok, '同じ持ち物の重複を弾く');
+  const okTeam = [M('カビゴン', null, 'occa-berry'), M('ゲンガー', null, 'yache-berry'), M('リザードン'), M('ギャラドス')];
+  ok(checkRules(okTeam).find(x => x.id === 'item').ok, '違う持ち物なら通る');
+}
+ok(mulText(0.75) === '¾' && mulText(3) === '3' && mulText(1.25) === '1.25', 'とくせい由来の端数も表示できる');
 
 console.log('\n■ 補完探索（6体 → 入れ替え 1026通り）');
 const t0 = performance.now();

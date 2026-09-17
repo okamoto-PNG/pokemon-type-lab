@@ -10,4 +10,4 @@ const start = tpl.indexOf('const DATA = __DATA__;');
 const end   = tpl.indexOf('/* === 5. 状態');
 if (start < 0 || end < 0) throw new Error('切り出し位置が見つかりません');
 const logic = tpl.slice(start, end).replace('__DATA__', json);
-fs.writeFileSync('logic.mjs', logic + '\nexport { TYPES, CHART, POKEMON, norm, REG, POOL, checkRules, regulationStatus, multiplier, analyze, summarize, suggest, typeKey, judge };\n');
+fs.writeFileSync('logic.mjs', logic + '\nexport { TYPES, CHART, POKEMON, norm, REG, POOL, checkRules, regulationStatus, effMultiplier, berryEffect, ABILITY_JA, ABILITY_FX, ITEMS, ITEM_BY, mulText, multiplier, analyze, summarize, suggest, typeKey, judge };\n');

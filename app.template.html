@@ -102,7 +102,19 @@ section + section{border-top:1px solid var(--line)}
 .lede{margin:2px 0 16px; color:var(--ink-2); font-size:12.5px; max-width:70ch}
 
 /* ===== パーティ =========================================================== */
-.slots{display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:8px}
+.slots{display:grid; grid-template-columns:repeat(auto-fill,minmax(176px,1fr)); gap:8px}
+.slotcfg{display:grid; gap:4px; margin-top:auto}
+.slotcfg select{
+  width:100%; max-width:100%; font:inherit; font-size:11px; line-height:1.3;
+  padding:4px 5px; border:1px solid var(--line); border-radius:5px;
+  background:var(--surface-2); color:var(--ink); -webkit-appearance:none; appearance:none;
+}
+.slotcfg select:hover{border-color:var(--accent)}
+.slotcfg select.set{border-color:var(--accent); background:var(--surface)}
+.m .bry{
+  display:block; font-size:8.5px; font-weight:600; line-height:1;
+  margin-top:2px; opacity:.8; font-family:var(--mono);
+}
 .slot{
   position:relative; background:var(--surface); border:1px solid var(--line);
   border-radius:var(--r); padding:9px 10px 10px; min-height:68px; text-align:left;
@@ -428,8 +440,13 @@ const KIND_LABEL = { 1: "メガ", 2: "フォルム" };   // 0 は原種（バッ
 const REG = DATA.regulation;          // 現行レギュレーション（ビルド時に解決済み）
 const POOL = new Set(REG.species);    // 使用可能な species id
 
-const POKEMON = DATA.pokemon.map(([name, t1, t2, gen, legend, roma, kind, sid, legal], i) => ({
-  i, name, gen, kind,
+const ABILITY_JA = DATA.abilities;    // { ability_id: 和名 }
+const ABILITY_FX = DATA.abilityFx;    // { ability_id: 相性への効果 }
+const ITEMS      = DATA.items;        // 相性に効く持ち物だけ
+const ITEM_BY    = new Map(ITEMS.map(it => [it.s, it]));
+
+const POKEMON = DATA.pokemon.map(([name, t1, t2, gen, legend, roma, kind, sid, legal, abils], i) => ({
+  i, name, gen, kind, abils,
   sid,                                // species id。同族判定に使う
   legal: legal === 1,                 // レギュ使用可。ビルド時にフォルム単位で判定済み
   legend: legend === 1,
@@ -466,11 +483,67 @@ for (const p of POKEMON) {
 
 /* === 2. 相性計算（純粋関数） ============================================= */
 
-/** 防御タイプ defTypes が、攻撃タイプ atk から受ける倍率。複合は積。 */
-function multiplier(atk, defTypes) {
+/**
+ * 防御タイプ defTypes が、攻撃タイプ atk から受ける倍率。複合は積。
+ * @param {null|"all"|number} ungroundZero 無効(×0)を打ち消す対象。"all" で全部、タイプ index でそれだけ。
+ */
+function multiplier(atk, defTypes, ungroundZero = null) {
   let m = 1;
-  for (let i = 0; i < defTypes.length; i++) m *= CHART[atk][defTypes[i]];
+  for (let i = 0; i < defTypes.length; i++) {
+    const d = defTypes[i];
+    let f = CHART[atk][d];
+    if (f === 0 && (ungroundZero === "all" || ungroundZero === d)) f = 1;
+    m *= f;
+  }
   return m;
+}
+
+// PokéAPI の英語タイプ名は "Ground" のように大文字始まり。必ず小文字化して比べる。
+const typeIndexOf = en => {
+  const i = TYPES.findIndex(t => t.en.toLowerCase() === en);
+  if (i < 0) throw new Error(`タイプが見つかりません: ${en}`);
+  return i;
+};
+const GROUND = typeIndexOf("ground");
+const FLYING = typeIndexOf("flying");
+
+/**
+ * とくせいと持ち物を織り込んだ実効倍率。
+ * 「持ち続けるもの」だけをここに反映する ― 半減きのみは1回限りなので berryEffect() で別に扱う。
+ */
+function effMultiplier(atk, m) {
+  const fx = m.ability != null ? ABILITY_FX[m.ability] : null;
+  const it = m.item ? ITEM_BY.get(m.item) : null;
+
+  // ねらいのまと: タイプによる無効を全解除 / くろいてっきゅう: ひこうのじめん無効だけ解除
+  const unground = it?.mode === "no-immunity" ? "all"
+                 : (it?.mode === "ground-flying" && atk === GROUND) ? FLYING
+                 : null;
+  let v = multiplier(atk, m.types, unground);
+
+  if (fx) {
+    if (fx.wonder) return v >= 2 ? v : 0;                    // ふしぎなまもり
+    // くろいてっきゅうは「地に足がつく」ので、ふゆうのじめん無効も打ち消す
+    const grounded = it?.mode === "ground-flying" && atk === GROUND;
+    if (!grounded && fx.immune && fx.immune.includes(atk)) return 0;
+    if (fx.mul && fx.mul[atk] != null) v *= fx.mul[atk];
+    if (fx.se && v >= 2) v *= fx.se;
+  }
+  // ふうせん（くろいてっきゅうを持っていれば当然つかない）
+  if (it?.mode === "immune" && it.t === atk) return 0;
+  return v;
+}
+
+/**
+ * 半減きのみが効くなら、消費後の倍率を返す。効かなければ null。
+ * 1回限りなので実効倍率には混ぜず、表示の注記としてだけ使う。
+ */
+function berryEffect(atk, m, base) {
+  const it = m.item ? ITEM_BY.get(m.item) : null;
+  if (!it || it.t !== atk) return null;
+  if (it.mode === "berry")        return base >= 2 ? base / 2 : null;   // 効果抜群のときだけ
+  if (it.mode === "berry-always") return base > 0  ? base / 2 : null;   // ホズのみ
+  return null;
 }
 
 /** 倍率 → 耐性の価値。log2 なので ×2 が -1、×½ が +1 と対称になる。無効だけ別枠で +3。 */
@@ -493,8 +566,11 @@ function judge(weak, res) {
 const LEVEL_JA = { danger: "危険", caution: "注意", thin: "手薄", safe: "安定" };
 const ORDER    = { danger: 3, caution: 2, thin: 1, safe: 0 };
 
-const MUL_CLASS = new Map([[4, "m-x4"], [2, "m-x2"], [1, "m-x1"], [0.5, "m-h"], [0.25, "m-q"], [0, "m-x0"]]);
-const MUL_TEXT  = new Map([[4, "4"], [2, "2"], [1, "·"], [0.5, "½"], [0.25, "¼"], [0, "0"]]);
+// とくせいが絡むと ¾ や 1.5 も出るので、離散テーブルではなく関数で分類する
+const mulClass = m => m === 0 ? "m-x0" : m >= 3 ? "m-x4" : m > 1 ? "m-x2"
+                    : m === 1 ? "m-x1" : m <= 0.25 ? "m-q" : "m-h";
+const mulText  = m => ({ 0: "0", 0.25: "¼", 0.5: "½", 0.75: "¾", 1: "·" })[m]
+                    ?? String(Number(m.toFixed(3)));
 
 /* === 3. パーティ分析 ===================================================== */
 
@@ -504,7 +580,7 @@ function summarize(party) {
   for (let t = 0; t < NT; t++) {
     let weak = 0, res = 0;
     for (let k = 0; k < party.length; k++) {
-      const m = multiplier(t, party[k].types);
+      const m = effMultiplier(t, party[k]);
       if (m >= 2) weak++; else if (m <= 0.5) res++;
       score += resistValue(m);
     }
@@ -517,11 +593,12 @@ function summarize(party) {
 /** 表示用のフル分析。18行ぶんの明細つき。 */
 function analyze(party) {
   const rows = TYPES.map((ty, t) => {
-    const mults = party.map(m => multiplier(t, m.types));
+    const mults = party.map(m => effMultiplier(t, m));
+    const berries = party.map((m, k) => berryEffect(t, m, mults[k]));
     const weak  = mults.filter(m => m >= 2).length;
     const res   = mults.filter(m => m <= 0.5).length;
     return {
-      t, ja: ty.ja, mults, weak, res,
+      t, ja: ty.ja, mults, berries, weak, res,
       level: judge(weak, res),
       worst: mults.length ? Math.max(...mults) : 1,
     };
@@ -535,7 +612,7 @@ function offense(party) {
   if (!atk.length) {
     return { atk, uncovered: TYPES.map((_, i) => i), comboHit: 0, comboTotal: 171 };
   }
-  const best = defTypes => Math.max(...atk.map(a => multiplier(a, defTypes)));
+  const best = defTypes => Math.max(...atk.map(a => multiplier(a, defTypes)));   // 防御側のとくせいは考慮しない
 
   const uncovered = [];
   for (let d = 0; d < NT; d++) if (best([d]) < 2) uncovered.push(d);
@@ -637,6 +714,17 @@ function checkRules(party) {
     label: "同じポケモンは1体まで",
     detail: dupes.length ? [...new Set(dupes.map(m => m.name))].join("、") + " が重複" : "重複なし",
   });
+  if (R.itemClause) {
+    const held = mons.map(m => m.item).filter(Boolean);
+    const dup = held.filter((x, i) => held.indexOf(x) !== i);
+    out.push({
+      id: "item",
+      ok: dup.length === 0,
+      label: "同じ持ち物は1つまで",
+      detail: dup.length ? [...new Set(dup)].map(sl => ITEM_BY.get(sl)?.ja ?? sl).join("、") + " が重複"
+            : held.length ? `${held.length} 体が持ち物あり` : "持ち物なし",
+    });
+  }
   out.push({
     id: "pool",
     ok: illegal.length === 0,
@@ -663,8 +751,8 @@ const SAMPLE = ["ガブリアス", "リザードン", "カビゴン", "ゲンガ
 let party = [];          // [{ types:number[], name:string, mon:object|null }]
 let sortMode = "risk";
 
-const memberOfMon   = p  => ({ types: p.types, name: p.name, mon: p });
-const memberOfTypes = ts => ({ types: ts, name: ts.map(t => TYPES[t].ja).join("・"), mon: null });
+const memberOfMon   = p  => ({ types: p.types, name: p.name, mon: p, ability: null, item: null });
+const memberOfTypes = ts => ({ types: ts, name: ts.map(t => TYPES[t].ja).join("・"), mon: null, ability: null, item: null });
 
 function loadSample() {
   party = SAMPLE.map(n => POKEMON.find(p => p.name === n)).filter(Boolean).map(memberOfMon);
@@ -672,7 +760,8 @@ function loadSample() {
 
 function save() {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(party.map(m => m.mon ? { i: m.mon.i } : { t: m.types })));
+    localStorage.setItem(STORE_KEY, JSON.stringify(party.map(m =>
+      ({ ...(m.mon ? { i: m.mon.i } : { t: m.types }), a: m.ability, it: m.item }))));
   } catch (e) { /* プライベートウィンドウなどでは黙って諦める */ }
 }
 function load() {
@@ -680,9 +769,15 @@ function load() {
     const arr = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
     if (!Array.isArray(arr) || !arr.length) return false;
     party = arr
-      .map(e => (e && typeof e.i === "number" && POKEMON[e.i]) ? memberOfMon(POKEMON[e.i])
-              : (e && Array.isArray(e.t) && e.t.length)        ? memberOfTypes(e.t)
-              : null)
+      .map(e => {
+        const m = (e && typeof e.i === "number" && POKEMON[e.i]) ? memberOfMon(POKEMON[e.i])
+                : (e && Array.isArray(e.t) && e.t.length)        ? memberOfTypes(e.t)
+                : null;
+        if (!m) return null;
+        if (e.a != null && ABILITY_JA[e.a]) m.ability = e.a;
+        if (e.it && ITEM_BY.has(e.it))      m.item = e.it;
+        return m;
+      })
       .filter(Boolean)
       .slice(0, 6);
     return party.length > 0;
@@ -806,6 +901,37 @@ function renderSlots() {
     m.types.forEach(t => ch.append(typeChip(t)));
     s.append(ch);
 
+    const cfg = el("div", "slotcfg");
+
+    if (m.mon && m.mon.abils.length) {
+      const sel = el("select");
+      sel.id = `ab-${i}`;
+      sel.title = "とくせい";
+      sel.append(new Option("とくせい —", ""));
+      for (const id of m.mon.abils) {
+        const fx = ABILITY_FX[id] ? " ★" : "";
+        sel.append(new Option((ABILITY_JA[id] ?? `#${id}`) + fx, String(id), false, m.ability === id));
+      }
+      if (m.ability != null) sel.classList.add("set");
+      sel.onchange = e => { m.ability = e.target.value ? Number(e.target.value) : null; render(); };
+      cfg.append(sel);
+    }
+
+    const isel = el("select");
+    isel.id = `it-${i}`;
+    isel.title = "もちもの";
+    isel.append(new Option("もちもの —", ""));
+    for (const it of ITEMS) {
+      const label = it.t != null && it.mode.startsWith("berry")
+        ? `${it.ja}（${TYPES[it.t].ja}半減）`
+        : `${it.ja}（${it.note}）`;
+      isel.append(new Option(label, it.s, false, m.item === it.s));
+    }
+    if (m.item) isel.classList.add("set");
+    isel.onchange = e => { m.item = e.target.value || null; render(); };
+    cfg.append(isel);
+    s.append(cfg);
+
     const rm = el("button", "rm", "×");
     rm.type = "button";
     rm.setAttribute("aria-label", m.name + " を外す");
@@ -846,10 +972,15 @@ function renderMatrix(a) {
     tn.append(typeChip(r.t));
     tr.append(tn);
 
-    r.mults.forEach(m => {
+    r.mults.forEach((m, k) => {
       const td = el("td", "cell");
-      const sp = el("span", "m " + (MUL_CLASS.get(m) || "m-x1"), MUL_TEXT.get(m) ?? String(m));
+      const sp = el("span", "m " + mulClass(m), mulText(m));
       sp.title = "×" + m;
+      const b = r.berries[k];
+      if (b != null) {
+        sp.append(el("i", "bry", "⇒" + mulText(b)));
+        sp.title += `（${ITEM_BY.get(party[k].item).ja}で初撃のみ ×${b}）`;
+      }
       td.append(sp);
       tr.append(td);
     });
@@ -876,9 +1007,10 @@ function renderLegend() {
   L.textContent = "";
   [[4, "4倍"], [2, "2倍"], [1, "等倍"], [0.5, "半減"], [0.25, "¼"], [0, "無効"]].forEach(([m, label]) => {
     const w = el("span");
-    w.append(el("span", "m " + MUL_CLASS.get(m), MUL_TEXT.get(m)), document.createTextNode(label));
+    w.append(el("span", "m " + mulClass(m), mulText(m)), document.createTextNode(label));
     L.append(w);
   });
+  L.append(el("span", null, "とくせいは倍率に反映済み。半減きのみは1回限りなので ⇒ で併記（判定には含めません）"));
   L.append(el("span", null, "判定 ― 危険: 弱点2体以上かつ半減1体以下／注意: 弱点 > 受け皿／手薄: 半減できる味方ゼロ"));
 }
 
@@ -1068,6 +1200,11 @@ $("explain").innerHTML = `
 <p>図鑑が教えてくれるのは「種」までで、メガやリージョンフォルムが使えるかは分かりません。そこで <code>${REG.game}</code> の技マシン習得表（version group ${DATA.regulation.pokedexId === 36 ? 32 : "?"}）を引いています。<b>そのソフトに技データがある姿＝実装されている姿</b>という筋で、メガ ${POKEMON.filter(p => p.legal && p.kind === 1).length} 件とリージョンフォルム ${POKEMON.filter(p => p.legal && p.kind === 2).length} 件をフォルム単位で確定させました。</p>
 <p>ただし PokéAPI の習得表は図鑑より更新が遅れます。実際、ロースターに入ったばかりの ${REG.laggingSpecies} 種はまだ技データがありません。この種については「取りこぼすより拾いすぎるほうがまし」と考えて、種単位で使用可としています。それでも漏れるもの（既存種に後から追加されたメガなど）は <code>regulations.json</code> の <code>formOverrides</code> に手で書きます ― 現在 ${REG.overrides.length} 件。綴りを間違えると効かないので、一致しなかった override はビルド時に警告します。</p>
 <p>3つの情報源を重ねているので、どれが効いたかは常に追えます: <b>図鑑</b>（種の在否・最新）→ <b>習得表</b>（姿の在否・やや遅れる）→ <b>手動リスト</b>（どちらも間に合っていない分）。</p>
+
+<h4>9. とくせいと持ち物は「持続するか」で扱いを分ける</h4>
+<p>相性を書き換える要素には2種類あります。<b>持ち続けるもの</b>（とくせい ${Object.keys(ABILITY_FX).length} 件、ふうせん・くろいてっきゅう・ねらいのまと）は倍率そのものに畳み込み、<b>1回で消えるもの</b>（半減きのみ18種）はセルに <code>⇒</code> で併記するだけにしています。きのみを倍率に混ぜると「この枠は安全」と読めてしまいますが、実際には2発目から元に戻るからです。危険度の判定もきのみを無視します ― 保険であって解決ではないので。</p>
+<p>とくせいの効果だけは PokéAPI が自然言語の説明文でしか持っていないので、<code>build-data.mjs</code> に手で表を書いています。ただし書くのはスラッグ（<code>levitate</code> など）だけで、id への解決と和名の取得はビルド時に自動です。綴りを間違えれば起動時に警告が出ます。</p>
+<p>副作用として、倍率が <code>×2 / ×½</code> のような 2 のべき乗だけではなくなりました。ハードロックは効果抜群を <code>×0.75</code> にするので <code>×4 → ×3</code> が出ます。表示は離散テーブルをやめて関数に置き換えてあります。</p>
 `;
 
 $("q").addEventListener("input", renderResults);
