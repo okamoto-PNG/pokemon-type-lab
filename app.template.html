@@ -110,6 +110,10 @@ section + section{border-top:1px solid var(--line)}
   background:var(--surface-2); color:var(--ink); -webkit-appearance:none; appearance:none;
 }
 .slotcfg select:hover{border-color:var(--accent)}
+.itemlock{
+  font-size:10.5px; color:var(--muted); border:1px dashed var(--line-2);
+  border-radius:5px; padding:4px 6px; text-align:center; line-height:1.3;
+}
 .slotcfg select.set{border-color:var(--accent); background:var(--surface)}
 .m .bry{
   display:block; font-size:8.5px; font-weight:600; line-height:1;
@@ -291,6 +295,12 @@ tr.row.lvl-caution td.t-name{box-shadow:inset 3px 0 0 var(--warn)}
 .sugdelta .up{color:var(--good)} .sugdelta .down{color:var(--crit)}
 .sugex{font-size:11px; color:var(--muted); margin-top:3px; overflow-wrap:anywhere}
 .swapnote{font-size:11px; color:var(--muted); align-self:center}
+.recname{font-size:13px; font-weight:700; align-self:center; margin-right:2px}
+.abchip{
+  font-size:10px; font-weight:600; line-height:1; align-self:center;
+  padding:4px 6px 5px; border-radius:4px;
+  background:var(--surface-2); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line-2);
+}
 @media (max-width:540px){ .sugrow{grid-template-columns:auto 1fr} .sugrow .btn{grid-column:2; justify-self:start} }
 
 /* ===== 資料 =============================================================== */
@@ -389,6 +399,13 @@ footer a{color:var(--accent)}
   </section>
 
   <section>
+    <div class="shead"><h2>おすすめポケモン</h2><span class="hint" id="recHint"></span></div>
+    <p class="lede">型ではなく実在のポケモンで答えます。レギュレーション使用可の全員を、<b>とくせい込みで</b>総当たりして並べます ― ふゆうの有無で守りの価値は変わるので、推奨のとくせいも一緒に出します。同族条項があるので、すでにいる種は候補から外しています。</p>
+    <div class="sug" id="rec"></div>
+    <p class="res-note" id="recNote"></p>
+  </section>
+
+  <section>
     <div class="shead"><h2>資料</h2></div>
     <details class="box">
       <summary>タイプ相性表（18×18・行が攻撃側）</summary>
@@ -455,6 +472,12 @@ const ITEM_GROUPS = (() => {
   }
   return [...m.entries()];
 })();
+
+/**
+ * メガシンカとゲンシカイキは持ち物枠がメガストーン／オーブで埋まるので、他の持ち物を持てない。
+ * データ上はどちらも kind === 1。
+ */
+const canHoldItem = m => !(m.mon && m.mon.kind === 1);
 
 /** ドロップダウンに出す表示名。効果が分かるものは括弧で添える。 */
 function itemLabel(it) {
@@ -592,13 +615,23 @@ const mulText  = m => ({ 0: "0", 0.25: "¼", 0.5: "½", 0.75: "¾", 1: "·" })[m
 
 /* === 3. パーティ分析 ===================================================== */
 
-/** 集計だけを返す軽量版。補完探索で千回以上まわすので中間オブジェクトを作らない。 */
-function summarize(party) {
+/**
+ * 1体の「18タイプぶんの被弾倍率」をまとめて出す。
+ * 探索では同じ計算を何千回も繰り返すので、候補ごとに一度だけ作って使い回す。
+ */
+function defVector(m) {
+  const v = new Array(NT);
+  for (let t = 0; t < NT; t++) v[t] = effMultiplier(t, m);
+  return v;
+}
+
+/** 集計だけを返す軽量版。探索で何千回もまわすので中間オブジェクトを作らない。 */
+function summarizeVecs(vecs) {
   let danger = 0, caution = 0, thin = 0, score = 0;
   for (let t = 0; t < NT; t++) {
     let weak = 0, res = 0;
-    for (let k = 0; k < party.length; k++) {
-      const m = effMultiplier(t, party[k]);
+    for (let k = 0; k < vecs.length; k++) {
+      const m = vecs[k][t];
       if (m >= 2) weak++; else if (m <= 0.5) res++;
       score += resistValue(m);
     }
@@ -607,6 +640,8 @@ function summarize(party) {
   }
   return { danger, caution, thin, score };
 }
+
+const summarize = party => summarizeVecs(party.map(defVector));
 
 /** 表示用のフル分析。18行ぶんの明細つき。 */
 function analyze(party) {
@@ -666,16 +701,19 @@ function cmpKey(a, b) { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) re
 function suggest(party, base) {
   if (!party.length) return [];
   const out = [];
+  const baseVecs = party.map(defVector);
 
   if (party.length < 6) {
-    for (const c of CANDIDATES) out.push({ mode: "add", types: c, s: summarize([...party, { types: c }]) });
+    for (const c of CANDIDATES) {
+      out.push({ mode: "add", types: c, s: summarizeVecs([...baseVecs, defVector({ types: c })]) });
+    }
   } else {
-    const next = party.slice();
+    const next = baseVecs.slice();
     for (let slot = 0; slot < party.length; slot++) {
       const keep = next[slot];
       for (const c of CANDIDATES) {
-        next[slot] = { types: c };
-        out.push({ mode: "swap", slot, types: c, s: summarize(next) });
+        next[slot] = defVector({ types: c });
+        out.push({ mode: "swap", slot, types: c, s: summarizeVecs(next) });
       }
       next[slot] = keep;
     }
@@ -700,6 +738,71 @@ function suggest(party, base) {
       .filter(p => !p.legend)
       .sort((a, b) => (b.legal - a.legal) || (a.kind - b.kind) || (a.i - b.i))
       .slice(0, 4),
+  }));
+}
+
+/**
+ * レギュレーションで使える実在ポケモンを直接ランキングする。
+ * 型の提案が「どんな形が要るか」なら、こちらは「じゃあ誰を入れるか」。
+ *
+ * とくせいまで込みで評価する ― ふゆうの有無で守りの価値がまるごと変わるので、
+ * 候補ごとに「相性に効くとくせい」を一通り試して、一番よかったものを推奨として添える。
+ * 同族条項があるので、すでにいる種は候補から外す。
+ */
+function recommend(party, base, limit = 8) {
+  if (!party.length) return [];
+  const baseVecs = party.map(defVector);
+  const used = new Set(party.filter(m => m.mon).map(m => m.mon.sid));
+  const full = party.length >= REG.rules.teamMax;
+  const out = [];
+
+  for (const p of POKEMON) {
+    if (!p.legal || used.has(p.sid)) continue;
+    // 相性に効かないとくせいは結果が変わらないので試さない
+    const abilityOptions = [null, ...p.abils.filter(a => ABILITY_FX[a])];
+    for (const ab of abilityOptions) {
+      const vec = defVector({ types: p.types, ability: ab, item: null });
+      if (full) {
+        const next = baseVecs.slice();
+        for (let slot = 0; slot < party.length; slot++) {
+          const keep = next[slot];
+          next[slot] = vec;
+          out.push({ p, ability: ab, slot, s: summarizeVecs(next) });
+          next[slot] = keep;
+        }
+      } else {
+        out.push({ p, ability: ab, slot: -1, s: summarizeVecs([...baseVecs, vec]) });
+      }
+    }
+  }
+  out.sort((a, b) => cmpKey(rankKey(a.s), rankKey(b.s)));
+
+  // 素直に上位から取ると同型が並んでリストが死ぬ（はがね/フェアリーが4件、など）ので間引く:
+  //   1. 同じポケモンは1件だけ（枠違い・とくせい違いで重複するため）
+  //   2. 同じ種で同じタイプなら1件だけ（クチートとメガクチート。同族条項でどうせ両立しない）
+  //      タイプが変わるメガ（リザードンとメガリザードンＸ）は別物として残す
+  //   3. 同じタイプ構成は2件まで（横並びの選択肢は見せつつ、リストは散らす）
+  const seen = new Set(), seenSpecies = new Set(), perType = new Map(), top = [];
+  for (const r of out) {
+    if (seen.has(r.p.i)) continue;
+    seen.add(r.p.i);
+    const tk = typeKey(r.p.types);
+    if (seenSpecies.has(r.p.sid + "|" + tk)) continue;
+    const n = perType.get(tk) || 0;
+    if (n >= 2) continue;
+    seenSpecies.add(r.p.sid + "|" + tk);
+    perType.set(tk, n + 1);
+    top.push(r);
+    if (top.length >= limit) break;
+  }
+  return top.map(r => ({
+    ...r,
+    delta: {
+      danger:  r.s.danger  - base.danger,
+      caution: r.s.caution - base.caution,
+      thin:    r.s.thin    - base.thin,
+      score:   r.s.score   - base.score,
+    },
   }));
 }
 
@@ -740,7 +843,8 @@ function checkRules(party) {
       ok: dup.length === 0,
       label: "同じ持ち物は1つまで",
       detail: dup.length ? [...new Set(dup)].map(sl => ITEM_BY.get(sl)?.ja ?? sl).join("、") + " が重複"
-            : held.length ? `${held.length} 体が持ち物あり` : "持ち物なし",
+            : held.length ? `${held.length} 体が持ち物あり`
+            : mons.some(m => !canHoldItem(m)) ? "持ち物なし（メガは枠が専有）" : "持ち物なし",
     });
   }
   out.push({
@@ -793,7 +897,7 @@ function load() {
                 : null;
         if (!m) return null;
         if (e.a != null && ABILITY_JA[e.a]) m.ability = e.a;
-        if (e.it && ITEM_BY.has(e.it))      m.item = e.it;
+        if (e.it && ITEM_BY.has(e.it) && canHoldItem(m)) m.item = e.it;
         return m;
       })
       .filter(Boolean)
@@ -831,6 +935,7 @@ function render() {
   renderMatrix(a);
   renderCoverage(a);
   renderSuggest(a);
+  renderRecommend(a);
   renderResults();
   $("barNote").textContent = party.length
     ? `${party.length}/6 体 ・ 危険 ${a.danger} タイプ`
@@ -933,6 +1038,21 @@ function renderSlots() {
       if (m.ability != null) sel.classList.add("set");
       sel.onchange = e => { m.ability = e.target.value ? Number(e.target.value) : null; render(); };
       cfg.append(sel);
+    }
+
+    if (!canHoldItem(m)) {
+      // メガストーン／オーブで枠が埋まっているので、選ばせずに理由を出す
+      m.item = null;
+      const lock = el("div", "itemlock", "もちもの ― メガストーンで専有");
+      cfg.append(lock);
+      s.append(cfg);
+      const rmm = el("button", "rm", "×");
+      rmm.type = "button";
+      rmm.setAttribute("aria-label", m.name + " を外す");
+      rmm.onclick = () => { party.splice(i, 1); render(); };
+      s.append(rmm);
+      box.append(s);
+      return;
     }
 
     const isel = el("select");
@@ -1131,6 +1251,72 @@ function renderSuggest(a) {
   });
 }
 
+function renderRecommend(a) {
+  const box = $("rec");
+  box.textContent = "";
+
+  if (!party.length) {
+    $("recHint").textContent = "";
+    const d = el("div", "panel", "パーティを1体以上入れると候補が出ます。");
+    d.style.color = "var(--muted)";
+    box.append(d);
+    return;
+  }
+
+  const t0 = performance.now();
+  const list = recommend(party, a);
+  const ms = performance.now() - t0;
+  const full = party.length >= REG.rules.teamMax;
+  $("recHint").textContent =
+    `${POKEMON.filter(p => p.legal).length} 件を総当たり・${Math.round(ms)}ms` + (full ? "／入れ替え前提" : "");
+  $("recNote").textContent = "同じタイプ構成は2件までに間引いています（上位が同型で埋まらないように）。";
+
+  const delta = (v, label) => {
+    const w = el("span");
+    w.append(document.createTextNode(label + " "),
+             el("b", v < 0 ? "up" : v > 0 ? "down" : null, (v > 0 ? "+" : "") + v));
+    return w;
+  };
+
+  list.forEach((r, i) => {
+    const row = el("div", "sugrow" + (i === 0 ? " top" : ""));
+    row.append(el("div", "rank", String(i + 1)));
+
+    const main = el("div", "sugmain");
+    const head = el("div", "chips");
+    const nm = el("span", "recname", r.p.name);
+    head.append(nm);
+    r.p.types.forEach(t => head.append(typeChip(t)));
+    if (r.p.kind) head.append(kindChip(r.p.kind));
+    if (r.ability != null) head.append(el("span", "abchip", "とくせい " + ABILITY_JA[r.ability]));
+    if (full) head.append(el("span", "swapnote", "← " + party[r.slot].name + " と交代"));
+    main.append(head);
+
+    const d = el("div", "sugdelta");
+    d.append(delta(r.delta.danger, "危険"), document.createTextNode("　"),
+             delta(r.delta.caution, "注意"), document.createTextNode("　"),
+             delta(r.delta.thin, "手薄"), document.createTextNode("　"));
+    const sc = el("span");
+    sc.append(document.createTextNode("スコア "),
+              el("b", r.delta.score > 0 ? "up" : r.delta.score < 0 ? "down" : null,
+                 (r.delta.score > 0 ? "+" : "") + r.delta.score.toFixed(1)));
+    d.append(sc);
+    main.append(d);
+    row.append(main);
+
+    const btn = el("button", "btn sm" + (i === 0 ? " primary" : ""), full ? "入れ替える" : "追加");
+    btn.type = "button";
+    btn.onclick = () => {
+      const m = memberOfMon(r.p);
+      m.ability = r.ability;
+      if (full) party[r.slot] = m; else party.push(m);
+      render();
+    };
+    row.append(btn);
+    box.append(row);
+  });
+}
+
 function renderResults() {
   const q = norm($("q").value.trim());
   const box = $("results");
@@ -1228,6 +1414,12 @@ $("explain").innerHTML = `
 <p>持ち物は ${ITEMS.length} 件収録していますが、相性に効くのは ${ITEMS.filter(i => i.mode).length} 件だけです。残りを入れてあるのは、アイテム条項（同じ持ち物は1つまで）を検証するために「相性に効かない持ち物も選べる」必要があるからで、選んでも行列は1マスも動きません。ドロップダウンの先頭グループが効く21件です。</p>
 <p>とくせいの効果だけは PokéAPI が自然言語の説明文でしか持っていないので、<code>build-data.mjs</code> に手で表を書いています。ただし書くのはスラッグ（<code>levitate</code> など）だけで、id への解決と和名の取得はビルド時に自動です。綴りを間違えれば起動時に警告が出ます。</p>
 <p>副作用として、倍率が <code>×2 / ×½</code> のような 2 のべき乗だけではなくなりました。ハードロックは効果抜群を <code>×0.75</code> にするので <code>×4 → ×3</code> が出ます。表示は離散テーブルをやめて関数に置き換えてあります。</p>
+<p>メガシンカとゲンシカイキは持ち物枠がメガストーン／オーブで埋まるので、持ち物を選べないようにしてあります。アイテム条項の数え上げからも外れます。</p>
+
+<h4>10. 実在ポケモンの推薦は、ベクトル化してから総当たりする</h4>
+<p>型の提案（171通り）と違い、ポケモンの推薦は「使用可 ${POKEMON.filter(p => p.legal).length} 件 × とくせい × 6枠」で万単位の評価になります。素直に書くと毎回 <code>18タイプ × 6体</code> の掛け算をやり直すことになるので、<b>1体の「18タイプぶんの被弾倍率」を配列にして一度だけ作り、あとは使い回します</b>（<code>defVector</code>）。これだけで探索が数ミリ秒に収まり、UI を触るたびに再計算しても引っかかりません。</p>
+<p>とくせいも探索対象です。候補ごとに「相性に効くとくせい」を一通り試し、一番よかったものを推奨として添えます ― 効かないとくせいは結果が同じなので試しません。おかげで「ミミズズ（どしょく）」のように、素のタイプだけ見ていては出てこない候補が上位に来ます。</p>
+<p>最後にひと手間かけて間引いています。素直に上位から並べると、はがね/フェアリーが4件並んで8枠のうち半分が実質同じ提案になりました。<b>同じ種で同じタイプ</b>（クチートとメガクチート）と<b>同じタイプ構成3件目以降</b>を落として、選択肢が散るようにしています。順位そのものは正しくても、並べ方が悪いと使えないという話です。</p>
 `;
 
 $("q").addEventListener("input", renderResults);

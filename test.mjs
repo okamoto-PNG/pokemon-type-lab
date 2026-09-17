@@ -1,5 +1,6 @@
 import { TYPES, POKEMON, multiplier, analyze, suggest, norm, REG, POOL, checkRules, regulationStatus,
-         effMultiplier, berryEffect, ABILITY_JA, ABILITY_FX, ITEMS, ITEM_BY, mulText } from './logic.mjs';
+         effMultiplier, berryEffect, ABILITY_JA, ABILITY_FX, ITEMS, ITEM_BY, mulText,
+         recommend, canHoldItem, defVector } from './logic.mjs';
 let fail = 0;
 const ok = (cond, msg) => { console.log((cond ? '  ok   ' : '  FAIL ') + msg); if (!cond) fail++; };
 const ti = ja => TYPES.findIndex(t => t.ja === ja);
@@ -156,6 +157,49 @@ s.forEach((r,i) => console.log(`   ${i+1}. ${r.types.map(t=>TYPES[t].ja).join('/
 ok(s.length === 5, '提案が5件返る');
 ok(s[0].s.danger <= a.danger, '1位は危険タイプ数を悪化させない');
 ok(ms < 400, `1026通りの探索が ${ms.toFixed(0)}ms（400ms未満）`);
+
+console.log('\n■ メガは持ち物を持てない');
+ok(canHoldItem(mon('カビゴン')) === true, '通常のポケモンは持ち物を持てる');
+ok(canHoldItem(mon('メガリザードンＸ')) === false, 'メガはメガストーンで枠が埋まる');
+ok(canHoldItem(mon('ゲンシグラードン')) === false, 'ゲンシカイキもオーブで埋まる');
+ok(canHoldItem(mon('ライチュウ（アローラのすがた）')) === true, 'リージョンフォルムは普通に持てる');
+ok(canHoldItem({ types: [0], name: '仮枠', mon: null }) === true, '型のみの仮枠は対象外');
+
+console.log('\n■ おすすめポケモン');
+{
+  const t0 = performance.now();
+  const rec = recommend(party, analyze(party));
+  const ms = performance.now() - t0;
+  console.log(`  候補 ${POKEMON.filter(p => p.legal).length} 件 × 6枠 を ${ms.toFixed(0)}ms で探索`);
+  rec.slice(0, 5).forEach((r, i) => console.log(
+    `   ${i + 1}. ${r.p.name}`.padEnd(22, ' ') +
+    (r.ability != null ? `（${ABILITY_JA[r.ability]}）`.padEnd(14, ' ') : ''.padEnd(14, ' ')) +
+    `← ${party[r.slot].name} 交代  危険${r.delta.danger} 注意${r.delta.caution} 手薄${r.delta.thin} スコア${r.delta.score > 0 ? '+' : ''}${r.delta.score.toFixed(1)}`));
+  ok(rec.length === 8, '8件返る');
+  ok(ms < 1500, `探索が ${ms.toFixed(0)}ms（1500ms未満）`);
+  ok(rec.every(r => r.p.legal), '候補はすべてレギュ使用可');
+  ok(new Set(rec.map(r => r.p.i)).size === rec.length, '同じポケモンが重複しない');
+  { const c = {}; rec.forEach(r => { const k = [...r.p.types].sort().join('-'); c[k] = (c[k]||0)+1; });
+    ok(Math.max(...Object.values(c)) <= 2, '同じタイプ構成は2件まで');
+    ok(Object.keys(c).length >= 4, `タイプ構成が ${Object.keys(c).length} 種類に散る`); }
+  ok(!(rec.some(r => r.p.name === 'クチート') && rec.some(r => r.p.name === 'メガクチート')),
+     'クチートとメガクチート（同種・同タイプ）は両方出さない');
+  const used = new Set(party.map(m => m.mon.sid));
+  ok(rec.every(r => !used.has(r.p.sid)), '既にいる種は候補から外れる（同族条項）');
+  ok(rec[0].s.danger <= analyze(party).danger, '1位は危険タイプ数を悪化させない');
+  ok(rec.every(r => r.ability == null || ABILITY_FX[r.ability]), '推奨とくせいは相性に効くものだけ');
+}
+{ // 空きがあるときは追加として扱う
+  const rec = recommend(party.slice(0, 4), analyze(party.slice(0, 4)));
+  ok(rec.every(r => r.slot === -1), '4体なら入れ替えではなく追加');
+}
+ok(recommend([], { danger: 0, caution: 0, thin: 0, score: 0 }).length === 0, '空パーティなら候補なし');
+
+console.log('\n■ ベクトル化しても結果が変わらない');
+{
+  const v = defVector(M('ゲンガー', 'ふゆう'));
+  ok(v.length === 18 && v[ti('じめん')] === 0, 'defVector にとくせいが反映される');
+}
 
 console.log('\n■ 空パーティ');
 const e = analyze([]);
