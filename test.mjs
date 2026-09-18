@@ -1,6 +1,6 @@
 import { TYPES, POKEMON, multiplier, analyze, suggest, norm, REG, POOL, checkRules, regulationStatus,
          effMultiplier, berryEffect, ABILITY_JA, ABILITY_FX, ITEMS, ITEM_BY, mulText,
-         recommend, canHoldItem, defVector } from './logic.mjs';
+         recommend, canHoldItem, defVector, threats, counterPlan } from './logic.mjs';
 let fail = 0;
 const ok = (cond, msg) => { console.log((cond ? '  ok   ' : '  FAIL ') + msg); if (!cond) fail++; };
 const ti = ja => TYPES.findIndex(t => t.ja === ja);
@@ -200,6 +200,52 @@ console.log('\n■ ベクトル化しても結果が変わらない');
   const v = defVector(M('ゲンガー', 'ふゆう'));
   ok(v.length === 18 && v[ti('じめん')] === 0, 'defVector にとくせいが反映される');
 }
+
+console.log('\n■ 警戒すべき相手');
+{
+  const t0 = performance.now();
+  const list = threats(party);
+  const ms = performance.now() - t0;
+  console.log(`  ${POKEMON.filter(p => p.legal).length} 件を ${ms.toFixed(0)}ms で走査 → ${list.length} 件`);
+  list.slice(0, 3).forEach(t => console.log(
+    `   ${t.x.name}（種族値${t.x.bst} すばやさ${t.x.spd}）刺さる${t.hits.length} 受け${t.walls.length} 返し${t.answers.length}`));
+
+  ok(list.length === 6, '6 件返る');
+  ok(ms < 800, `走査が ${ms.toFixed(0)}ms（800ms未満）`);
+  ok(list.every(t => t.x.legal), '相手候補はレギュ使用可のみ');
+  ok(list.every(t => t.hits.length >= 1), '誰にも刺さらない相手は出てこない');
+  ok(new Set(list.map(t => [...t.x.types].sort().join('-'))).size === list.length,
+     '同じタイプ構成は1件だけ（ラグラージとメガラグラージが並ばない）');
+  // 危険な順に並ぶ
+  for (let i = 1; i < list.length; i++) ok(list[i - 1].hits.length >= list[i].hits.length, `${i} 番目より ${i + 1} 番目のほうが刺さる数が多くない`);
+  // 同型が複数いるときは種族値が高いほうが残る
+  const ragu = list.find(t => t.x.name.includes('ラグラージ'));
+  if (ragu) ok(ragu.x.name === 'メガラグラージ', '同型ならメガ（種族値が高いほう）が残る');
+}
+{ // 対策文が事実と食い違わないこと
+  const list = threats(party);
+  for (const t of list) {
+    const plan = counterPlan(t).join(' ');
+    if (!t.walls.length) ok(plan.includes('半減で受けられる味方がいません'), `${t.x.name}: 受け皿ゼロを明言する`);
+    if (!t.answers.length) ok(plan.includes('抜群を取れる味方がいない'), `${t.x.name}: 返し手なしを明言する`);
+    // 自分も抜群を受ける相手を「後出しできる」と書かない
+    const top = t.answers.slice().sort((a,b)=>(a.exposed-b.exposed)||(b.faster-a.faster)||(b.mult-a.mult))[0];
+    if (top && top.exposed) ok(!plan.includes('後出しでき'), `${t.x.name}: 抜群を受ける味方を後出し可と書かない`);
+    if (top && !top.exposed) ok(plan.includes('後出しでき'), `${t.x.name}: 安全に出せる味方はそう書く`);
+  }
+}
+{
+  const empty = threats([]);
+  ok(empty.length === 0, '空パーティなら警戒対象なし');
+}
+{ // 種族値がフォルム単位で入っている
+  const liz = POKEMON.find(p => p.name === 'リザードン'), mliz = POKEMON.find(p => p.name === 'メガリザードンＸ');
+  ok(liz.bst === 534 && mliz.bst === 634, `種族値がフォルム別（リザードン ${liz.bst} / メガX ${mliz.bst}）`);
+  ok(POKEMON.every(p => p.stats.length === 6), '全件に6つのステータスがある');
+  ok(POKEMON.find(p => p.name === 'サンダース').spd === 130, 'すばやさが引ける（サンダース130）');
+  ok(POKEMON.find(p => p.name === 'ガブリアス').lean === '物理寄り', '物理/特殊の偏りが出る');
+}
+
 
 console.log('\n■ 使用不可のポケモンを出さない');
 {

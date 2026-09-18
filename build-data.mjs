@@ -128,6 +128,7 @@ for (let off = 0; ; off += 1000) {
     id is_default pokemon_species_id
     pokemontypes(order_by:{slot:asc}) { type_id }
     pokemonabilities(order_by:{slot:asc}) { ability_id }
+    pokemonstats(order_by:{stat_id:asc}) { base_stat }
     pokemonspecy { generation_id is_legendary is_mythical pokemonspeciesnames(where:{language_id:{_in:[1,2]}}) { name language_id } }
     pokemonforms { name is_mega pokemonformnames(where:{language_id:{_eq:1}}) { name } }
   } }`);
@@ -223,10 +224,20 @@ for (const p of rows) {
   seenSig.add(name + '|' + tkey);
   seenName.add(name);
   out.push([name, idx.get(tids[0]), tids[1] != null ? idx.get(tids[1]) : -1, sp.generation_id, (sp.is_legendary||sp.is_mythical)?1:0, roma, kind, p.pokemon_species_id, isLegal(p) ? 1 : 0,
-             p.pokemonabilities.map(a => a.ability_id), p.pokemon_species_id]);
+             p.pokemonabilities.map(a => a.ability_id),
+             p.pokemonstats.map(x => x.base_stat),          // [HP, こうげき, ぼうぎょ, とくこう, とくぼう, すばやさ]
+             p.pokemon_species_id]);
 }
-out.sort((a, b) => a[10] - b[10] || a[0].localeCompare(b[0], 'ja'));
-const pokemon = out.map(r => r.slice(0, 10));  // [..., species id, レギュ使用可, とくせいid配列]
+out.sort((a, b) => a[11] - b[11] || a[0].localeCompare(b[0], 'ja'));
+const pokemon = out.map(r => r.slice(0, 11));  // [..., レギュ使用可, とくせいid配列, 種族値6つ]
+
+// 種族値はフォルムごとに違う（メガは原種より高い）ので、pokemon 単位で取れているか確認する
+const noStat = pokemon.filter(r => !r[10] || r[10].length !== 6);
+if (noStat.length) throw new Error(`種族値が取れていない: ${noStat.length} 件（例: ${noStat[0][0]}）`);
+const bstOf = r => r[10].reduce((x, y) => x + y, 0);
+const liz = pokemon.find(r => r[0] === 'リザードン'), mliz = pokemon.find(r => r[0] === 'メガリザードンＸ');
+if (liz && mliz && bstOf(liz) === bstOf(mliz)) throw new Error('メガの種族値が原種と同じ ― フォルム単位で取れていない');
+console.error(`種族値: 全件取得済み（例: リザードン ${bstOf(liz)} / メガリザードンＸ ${bstOf(mliz)}）`);
 
 // 効かなかった override はスラッグの綴り間違い。黙って無視せず知らせる。
 const ovUnused = [...ovAllow, ...ovDeny].filter(x => !ovSeen.has(x));

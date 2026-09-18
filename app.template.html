@@ -324,6 +324,40 @@ tr.row.lvl-danger:hover td, tr.row.lvl-caution:hover td{filter:brightness(1.04)}
 .gauge i{display:block; height:100%; background:var(--accent)}
 .big{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:26px; font-weight:600; line-height:1.2; margin-top:6px}
 
+/* ===== 警戒すべき相手 ===================================================== */
+.threats{display:grid; gap:8px}
+.threat{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  padding:12px 13px 13px; border-left:4px solid var(--line-2);
+}
+.threat.hot{border-left-color:var(--crit)}
+.threat.warm{border-left-color:var(--warn)}
+.thead{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.thead .pname{font-size:14px}
+.statchip{
+  font-family:var(--mono); font-size:10px; color:var(--ink-2); line-height:1;
+  background:var(--surface-2); border-radius:4px; padding:4px 6px 5px; white-space:nowrap;
+}
+.tsum{font-size:11.5px; color:var(--ink-2); margin-top:7px}
+.tsum b{color:var(--crit)}
+/* 6枠のどこが刺さっているかを一目で。番号はパーティの並びと同じ。 */
+.tgrid{display:flex; gap:3px; margin-top:7px; flex-wrap:wrap}
+.tcell{
+  display:flex; flex-direction:column; align-items:center; gap:1px; flex:0 0 auto;
+  min-width:46px; max-width:72px; padding:5px 5px 6px; border-radius:6px;
+  font-size:9px; line-height:1.25; border:1px solid transparent;
+}
+.tcell .n{font-family:var(--mono); font-size:11px; font-weight:700; line-height:1}
+.tcell .nm{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.9}
+.tcell.v4{background:var(--crit); color:#fff}
+.tcell.v2{background:var(--crit-1); color:var(--crit)}
+.tcell.v1{background:var(--surface-2); color:var(--muted)}
+.tcell.vh{background:var(--good-1); color:var(--good)}
+.tcell.v0{background:var(--void); color:#f2fbfd}
+.tplan{margin:10px 0 0; padding:0; list-style:none; font-size:12px; color:var(--ink-2)}
+.tplan li{position:relative; padding-left:15px; margin-bottom:3px; line-height:1.55}
+.tplan li::before{content:"›"; position:absolute; left:3px; top:-1px; color:var(--accent); font-weight:700; font-size:13px}
+
 /* ===== 補完の提案 ========================================================= */
 .sug{display:grid; gap:8px}
 .sugrow{
@@ -473,6 +507,13 @@ footer a{color:var(--accent)}
   </section>
 
   <section>
+    <div class="shead"><h2>警戒すべき相手</h2><span class="hint" id="thrHint"></span></div>
+    <p class="lede"><b>この6体で戦うとき、相手に来られて困るポケモンです。</b>使用可の全員を相手側に立たせて、あなたの誰に刺さるかを調べます。<br>
+    相手はタイプ一致技で殴ると仮定します。<b>技構成・持ち物・努力値は分からないので、ここで言えるのはタイプ相性とすばやさの範囲まで</b>です。</p>
+    <div class="threats" id="threats"></div>
+  </section>
+
+  <section>
     <div class="shead"><h2>補完の提案</h2><span class="hint" id="sugHint"></span><span id="sugTarget" class="targetbox"></span></div>
     <p class="lede"><b>「どんなタイプが足りないか」を出します。</b>誰を入れるかは次の「おすすめポケモン」で。<br>
     単タイプ18通り＋複合153通り＝<span class="num">171型</span>をすべて試し、危険タイプが最も減る型を選びます。6体埋まっていれば、どの枠を外すかも含めて総当たりします。</p>
@@ -570,8 +611,14 @@ function itemLabel(it) {
   return it.ja;
 }
 
-const POKEMON = DATA.pokemon.map(([name, t1, t2, gen, legend, roma, kind, sid, legal, abils], i) => ({
-  i, name, gen, kind, abils,
+const STAT_JA = ["HP", "こうげき", "ぼうぎょ", "とくこう", "とくぼう", "すばやさ"];
+const ATK = 1, SPA = 3, SPD = 5;
+
+const POKEMON = DATA.pokemon.map(([name, t1, t2, gen, legend, roma, kind, sid, legal, abils, stats], i) => ({
+  i, name, gen, kind, abils, stats,
+  bst: stats.reduce((a, b) => a + b, 0),
+  spd: stats[SPD],
+  lean: stats[ATK] > stats[SPA] ? "物理寄り" : stats[SPA] > stats[ATK] ? "特殊寄り" : "両刀",
   sid,                                // species id。同族判定に使う
   legal: legal === 1,                 // レギュ使用可。ビルド時にフォルム単位で判定済み
   legend: legend === 1,
@@ -904,6 +951,100 @@ function recommend(party, base, limit = 8, targetSlot = -1) {
   }));
 }
 
+/* === 4.7 警戒すべき相手 ================================================== */
+
+/**
+ * 相手として来たら困るポケモンを洗い出す。
+ * 攻撃側はタイプ一致技だけを仮定し、こちらのとくせい・持ち物は倍率に反映する。
+ * 技構成・努力値・持ち物は分からないので、ここで分かるのは「型と素早さの範囲」まで。
+ */
+function threats(party, limit = 6) {
+  if (!party.length) return [];
+  const out = [];
+
+  for (const x of POKEMON) {
+    if (!x.legal) continue;
+    const hits = [], walls = [], answers = [];
+    for (let k = 0; k < party.length; k++) {
+      const m = party[k];
+      const taken = Math.max(...x.types.map(a => effMultiplier(a, m)));
+      if (taken >= 2) hits.push({ k, m, mult: taken });
+      else if (taken <= 0.5) walls.push({ k, m, mult: taken });
+
+      const back = Math.max(...m.types.map(a => multiplier(a, x.types)));
+      if (back >= 2) answers.push({
+        k, m, mult: back,
+        faster: (m.mon?.spd ?? 0) > x.spd,
+        exposed: taken >= 2,        // 返せるが自分も抜群を受ける＝後出しは危険
+      });
+    }
+    if (!hits.length) continue;     // 誰にも刺さらない相手は警戒する必要がない
+    out.push({ x, hits, walls, answers });
+  }
+
+  // 刺さる数が多く、返せず、受け皿もない順。同点なら種族値が高いほう。
+  out.sort((a, b) =>
+    b.hits.length - a.hits.length ||
+    a.answers.length - b.answers.length ||
+    a.walls.length - b.walls.length ||
+    b.x.bst - a.x.bst);
+
+  // 同じタイプ構成は1件だけ。ラグラージとメガラグラージが並んでも情報が増えない。
+  const seen = new Set(), top = [];
+  for (const r of out) {
+    const k = typeKey(r.x.types);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    top.push(r);
+    if (top.length >= limit) break;
+  }
+  return top;
+}
+
+/**
+ * 対策の文。タイプ相性と素早さから導ける事実だけで組み立てる。
+ * 技構成や持ち物を推測した「それっぽい戦術」は書かない。
+ */
+function counterPlan(t) {
+  const label = e => `${e.k + 1}. ${e.m.name}`;
+  const plan = [];
+
+  if (t.walls.length) {
+    const best = t.walls.slice().sort((a, b) => a.mult - b.mult)[0];
+    const others = t.walls.length > 1 ? `（他に ${t.walls.length - 1} 体が半減）` : "";
+    plan.push(`受けるなら ${label(best)}。×${best.mult} まで軽くなります${others}`);
+  } else {
+    plan.push("半減で受けられる味方がいません。受け出しは諦めて、先に倒しきる形を作る必要があります");
+  }
+
+  // 返し役の優先順位: 自分が抜群を受けない > 先手を取れる > 倍率が高い。
+  // 自分も抜群を受ける相手を「後出しで返せる」と書くと嘘になる。
+  const ranked = t.answers.slice().sort((a, b) =>
+    (a.exposed - b.exposed) || (b.faster - a.faster) || (b.mult - a.mult));
+
+  if (ranked.length) {
+    const a = ranked[0];
+    const spd = a.m.mon?.spd ?? "?";
+    const speedNote = a.faster
+      ? `すばやさ ${spd} > ${t.x.spd} で先手`
+      : `すばやさ ${spd} < ${t.x.spd} で後手`;
+    if (!a.exposed) {
+      plan.push(`返すなら ${label(a)}。抜群を受けないので後出しでき、${speedNote}、×${a.mult} が入ります`);
+    } else if (a.faster) {
+      plan.push(`${label(a)} が ×${a.mult} を返せます。${speedNote}なので先に動けますが、${label(a)} 自身も抜群を受けるため後出しは危険。初手か、倒したあとの繰り出しで`);
+    } else {
+      plan.push(`×${a.mult} を返せるのは ${label(a)} だけですが、${speedNote}のうえ自分も抜群を受けます。まともに受けられないので、別の相手で削ってから`);
+    }
+  } else {
+    plan.push("抜群を取れる味方がいないため、等倍で削り切ることになります。手数がかかります");
+  }
+
+  if (t.hits.length >= 3) {
+    plan.push(`刺さるのは ${t.hits.map(h => h.k + 1).join("・")} の ${t.hits.length} 体。この中から2体を同時に並べないこと`);
+  }
+  return plan;
+}
+
 /* === 4.5 レギュレーション判定 ============================================ */
 
 /**
@@ -1035,6 +1176,7 @@ function render() {
   renderRules();
   renderMatrix(a);
   renderCoverage(a);
+  renderThreats();
   renderSuggest(a);
   renderRecommend(a);
   renderResults();
@@ -1406,6 +1548,71 @@ function deltaLine(d) {
   return box;
 }
 
+function renderThreats() {
+  const box = $("threats");
+  box.textContent = "";
+
+  if (!party.length) {
+    $("thrHint").textContent = "";
+    const d = el("div", "panel", "パーティを1体以上入れると、警戒すべき相手が出ます。");
+    d.style.color = "var(--muted)";
+    box.append(d);
+    return;
+  }
+
+  const t0 = performance.now();
+  const list = threats(party);
+  const ms = performance.now() - t0;
+  $("thrHint").textContent = `${POKEMON.filter(p => p.legal).length} 件を走査・${Math.round(ms)}ms`;
+
+  if (!list.length) {
+    const d = el("div", "panel", "抜群を取られる相手が1体もいません。");
+    d.style.color = "var(--good)";
+    box.append(d);
+    return;
+  }
+
+  const cellClass = m => m === 0 ? "v0" : m >= 4 ? "v4" : m >= 2 ? "v2" : m <= 0.5 ? "vh" : "v1";
+
+  for (const t of list) {
+    const card = el("div", "threat " + (t.hits.length >= 3 && !t.walls.length ? "hot"
+                                      : t.hits.length >= 3 ? "warm" : ""));
+
+    const head = el("div", "thead");
+    head.append(el("span", "pname", t.x.name));
+    t.x.types.forEach(ty => head.append(typeChip(ty)));
+    if (t.x.kind) head.append(kindChip(t.x.kind));
+    head.append(el("span", "statchip", "種族値 " + t.x.bst),
+                el("span", "statchip", t.x.lean),
+                el("span", "statchip", "すばやさ " + t.x.spd));
+    card.append(head);
+
+    const sum = el("div", "tsum");
+    sum.append(document.createTextNode("あなたの "));
+    sum.append(el("b", null, `${t.hits.length} / ${party.length} 体`));
+    sum.append(document.createTextNode(` に抜群。半減で受けられるのは ${t.walls.length} 体、抜群を返せるのは ${t.answers.length} 体。`));
+    card.append(sum);
+
+    // 6枠ぶんのマス。どの枠が危ないかを色と番号で示す。
+    const grid = el("div", "tgrid");
+    party.forEach((m, k) => {
+      const taken = Math.max(...t.x.types.map(at => effMultiplier(at, m)));
+      const c = el("div", "tcell " + cellClass(taken));
+      c.title = `${m.name} は ${t.x.name} のタイプ一致技を ×${taken} で受けます`;
+      c.append(el("span", "n", `${k + 1}　×${mulText(taken) === "·" ? 1 : mulText(taken)}`),
+               el("span", "nm", m.name));
+      grid.append(c);
+    });
+    card.append(grid);
+
+    const ul = el("ul", "tplan");
+    for (const line of counterPlan(t)) ul.append(el("li", null, line));
+    card.append(ul);
+
+    box.append(card);
+  }
+}
+
 function renderSuggest(a) {
   const box = $("sug");
   box.textContent = "";
@@ -1641,7 +1848,13 @@ $("explain").innerHTML = `
 <p>副作用として、倍率が <code>×2 / ×½</code> のような 2 のべき乗だけではなくなりました。ハードロックは効果抜群を <code>×0.75</code> にするので <code>×4 → ×3</code> が出ます。表示は離散テーブルをやめて関数に置き換えてあります。</p>
 <p>メガシンカとゲンシカイキは持ち物枠がメガストーン／オーブで埋まるので、持ち物を選べないようにしてあります。アイテム条項の数え上げからも外れます。</p>
 
-<h4>10. 実在ポケモンの推薦は、ベクトル化してから総当たりする</h4>
+<h4>10. 攻める側からも同じ計算を回す</h4>
+<p>ここまでは「自分が受ける側」の計算でしたが、同じ相性表を逆向きに使えば「相手に来られて困るポケモン」も出せます。使用可の全員を相手側に立たせて、自分の誰に刺さるかを数えるだけです ― 新しい理屈は要りません。</p>
+<p>対策文は、その計算結果を日本語に組み替えているだけで、戦術を創作してはいません。種族値を入れたことで<b>すばやさの比較</b>ができるようになり、「先手を取れるか」まで言えるようになりました。ここがタイプだけでは絶対に出せなかった部分です。</p>
+<p>ひとつ作り込んだのは<b>「返せるが自分も抜群を受ける」の区別</b>です。最初の実装は、ドサイドンに対して「ギャラドスで返せる」と書いていました。みず技が ×4 入るので正しいのですが、ギャラドス自身も いわ技を ×2 で受けるので、後出しすれば落ちます。倍率だけ見て助言を書くとこうなります。いまは「抜群を受けないか」を最優先で並べ替え、受けてしまう場合は「後出しは危険」と書き分けています。</p>
+<p>逆に、書けないことははっきりしています。技構成・持ち物・努力値は PokéAPI にも無く、推測すればもっともらしい嘘になります。ダメージ計算も同じです。<b>出せる情報の範囲を先に決めて、その中だけで書く</b>ほうが、当たるかもしれない助言より役に立ちます。</p>
+
+<h4>11. 実在ポケモンの推薦は、ベクトル化してから総当たりする</h4>
 <p>型の提案（171通り）と違い、ポケモンの推薦は「使用可 ${POKEMON.filter(p => p.legal).length} 件 × とくせい × 6枠」で万単位の評価になります。素直に書くと毎回 <code>18タイプ × 6体</code> の掛け算をやり直すことになるので、<b>1体の「18タイプぶんの被弾倍率」を配列にして一度だけ作り、あとは使い回します</b>（<code>defVector</code>）。これだけで探索が数ミリ秒に収まり、UI を触るたびに再計算しても引っかかりません。</p>
 <p>とくせいも探索対象です。候補ごとに「相性に効くとくせい」を一通り試し、一番よかったものを推奨として添えます ― 効かないとくせいは結果が同じなので試しません。おかげで「ミミズズ（どしょく）」のように、素のタイプだけ見ていては出てこない候補が上位に来ます。</p>
 <p>最後にひと手間かけて間引いています。素直に上位から並べると、はがね/フェアリーが4件並んで8枠のうち半分が実質同じ提案になりました。<b>同じ種で同じタイプ</b>（クチートとメガクチート）と<b>同じタイプ構成3件目以降</b>を落として、選択肢が散るようにしています。順位そのものは正しくても、並べ方が悪いと使えないという話です。</p>
