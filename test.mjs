@@ -201,6 +201,32 @@ console.log('\n■ ベクトル化しても結果が変わらない');
   ok(v.length === 18 && v[ti('じめん')] === 0, 'defVector にとくせいが反映される');
 }
 
+console.log('\n■ 使用不可のポケモンを出さない');
+{
+  const a6 = analyze(party);
+  let bad = 0, empty = 0, total = 0;
+  for (const slot of [-1, 0, 1, 2, 3, 4, 5]) {
+    for (const r of suggest(party, a6, slot)) {
+      total++;
+      bad += r.examples.filter(p => !p.legal).length;
+      if (!r.examples.length) empty++;
+    }
+    bad += recommend(party, a6, 8, slot).filter(r => !r.p.legal).length;
+  }
+  console.log(`  全枠ぶんの提案 ${total} 件を検査`);
+  ok(bad === 0, `使用不可のポケモンが1件も出ない（検出 ${bad} 件）`);
+  ok(empty === 0, `「該当ポケモンなし」の行が出ない（検出 ${empty} 件）`);
+  ok(total > 0, '提案自体はちゃんと出ている');
+}
+{
+  // 空きがあるときも同じ
+  const p4 = party.slice(0, 4);
+  const a4 = analyze(p4);
+  ok(suggest(p4, a4).every(r => r.examples.every(p => p.legal)), '追加モードでも使用不可は出ない');
+  ok(recommend(p4, a4).every(r => r.p.legal), '追加モードのおすすめも使用可のみ');
+}
+
+
 console.log('\n■ 入れ替える枠の指定');
 {
   const a6 = analyze(party);

@@ -802,9 +802,16 @@ function suggest(party, base, targetSlot = -1) {
   const seen = new Map();
   for (const r of out) { const k = typeKey(r.types); if (!seen.has(k)) seen.set(k, r); }
 
-  // 同族条項があるので、既に編成済みの種は実例から外す（入れ替え対象の枠は空くので例外）
+  // 実例はレギュで実際に使えるものだけ。使えない名前を並べても選べない。
+  // 同族条項があるので編成済みの種も外す（入れ替え対象の枠は空くので例外）。
   const usedSid = new Set(party.filter(m => m.mon).map(m => m.mon.sid));
-  return [...seen.values()].slice(0, 5).map(r => ({
+  const examplesFor = r => (BY_KEY.get(typeKey(r.types)) || [])
+    .filter(p => p.legal)
+    .filter(p => !usedSid.has(p.sid) || (r.mode === "swap" && party[r.slot].mon?.sid === p.sid))
+    .sort((a, b) => (a.kind - b.kind) || (a.i - b.i))
+    .slice(0, 4);
+
+  const withDelta = r => ({
     ...r,
     delta: {
       danger:  r.s.danger  - base.danger,
@@ -812,14 +819,15 @@ function suggest(party, base, targetSlot = -1) {
       thin:    r.s.thin    - base.thin,
       score:   r.s.score   - base.score,
     },
-    // 実例は原種を先に。メガでしか実現しない型もあるので、原種がなければメガを出す。
-    // 実例はレギュ使用可 → 原種 の順に優先する
-    examples: (BY_KEY.get(typeKey(r.types)) || [])
-      .filter(p => !p.legend)
-      .filter(p => !usedSid.has(p.sid) || (r.mode === "swap" && party[r.slot].mon?.sid === p.sid))
-      .sort((a, b) => (b.legal - a.legal) || (a.kind - b.kind) || (a.i - b.i))
-      .slice(0, 4),
-  }));
+    examples: examplesFor(r),
+  });
+
+  // 組めない型（使用可のポケモンが存在しない）は提案しない。
+  // 型としては効いても選べないので、5枠を埋める価値がない。
+  const ranked = [...seen.values()].map(withDelta);
+  const buildable = ranked.filter(r => r.examples.length).slice(0, 5);
+  // 万一ひとつも組めなければ、参考として型だけでも見せる（無言で空にしない）
+  return buildable.length ? buildable : ranked.slice(0, 5);
 }
 
 /**
@@ -1421,15 +1429,24 @@ function renderSuggest(a) {
     r.types.forEach(t => inLine.append(typeChip(t)));
     main.append(inLine);
 
-    main.append(deltaLine(r.delta), el("div", "sugex", r.examples.length
-      ? "この型のポケモン: " + r.examples.map(p => p.name).join("、")
-      : "この組み合わせを持つポケモンは（伝説・幻を除くと）いません"));
+    const ex = el("div", "sugex");
+    if (r.examples.length) {
+      ex.textContent = "この型で使えるポケモン: " + r.examples.map(p => p.name).join("、");
+    } else {
+      // 型としては効くが、この型を持つ使用可ポケモンがいない ― それ自体が答えなので黙って隠さない
+      ex.textContent = `この型に当てはまる ${REG.id} 使用可のポケモンはいません（型の参考として表示）`;
+      ex.style.color = "var(--warn)";
+    }
+    main.append(deltaLine(r.delta), ex);
     row.append(main);
 
-    const btn = el("button", "btn sm" + (i === 0 ? " primary" : ""), swap ? "入れ替える" : "この枠を追加");
+    const hasMon = r.examples.length > 0;
+    const btn = el("button", "btn sm" + (i === 0 && hasMon ? " primary" : ""),
+                   hasMon ? (swap ? "入れ替える" : "この枠を追加") : "型だけ試す");
     btn.type = "button";
+    if (!hasMon) btn.title = "実在ポケモンがいないため、タイプだけの仮枠として入ります";
     btn.onclick = () => {
-      const m = r.examples.length ? memberOfMon(r.examples[0]) : memberOfTypes(r.types);
+      const m = hasMon ? memberOfMon(r.examples[0]) : memberOfTypes(r.types);
       if (swap) party[r.slot] = m; else party.push(m);
       render();
     };
