@@ -201,6 +201,43 @@ console.log('\n■ ベクトル化しても結果が変わらない');
   ok(v.length === 18 && v[ti('じめん')] === 0, 'defVector にとくせいが反映される');
 }
 
+console.log('\n■ 入れ替える枠の指定');
+{
+  const a6 = analyze(party);
+  const names = party.map(m => m.mon.name);
+  console.log('  パーティ: ' + names.map((n, k) => `${k + 1}.${n}`).join(' '));
+
+  // おまかせだと提案が1つの枠に集中しがち（これがユーザーの困りごと）
+  const auto = recommend(party, a6);
+  const slots = [...new Set(auto.map(r => r.slot))];
+  console.log('  おまかせ時に対象となった枠: ' + slots.map(k => `${k + 1}.${names[k]}`).join(' '));
+
+  // ギャラドス(5番)を残したい → 別の枠を指定する
+  const gyaSlot = names.indexOf('ギャラドス');
+  ok(gyaSlot >= 0, 'ギャラドスが 5 番にいる');
+  for (const t of [0, 2, gyaSlot]) {
+    const r = recommend(party, a6, 8, t);
+    ok(r.length > 0 && r.every(x => x.slot === t), `枠 ${t + 1}.${names[t]} を指定すると、その枠だけが対象になる`);
+  }
+  const keep = recommend(party, a6, 8, 3);
+  ok(keep.every(x => x.slot !== gyaSlot), 'ゲンガーの枠を指定すればギャラドスは外されない');
+  console.log('  枠4.ゲンガー指定時の上位3件: ' + keep.slice(0, 3).map(r => r.p.name).join('、'));
+
+  // 同じ種の別フォルムへの入れ替えは許す（外す枠が空くため）
+  const lizSlot = names.indexOf('リザードン');
+  const liz = recommend(party, a6, 60, lizSlot);
+  ok(liz.some(r => r.p.name.startsWith('メガリザードン')),
+     'リザードンの枠を指定すると、メガリザードンへの入れ替えが候補に出る');
+  ok(liz.every(r => r.p.i !== party[lizSlot].mon.i), '自分自身は候補に出ない');
+  ok(liz.every(r => !party.some((m, k) => k !== lizSlot && m.mon.sid === r.p.sid)),
+     '外す枠以外の種は候補から除外されたまま');
+
+  // 型の提案も同じく枠指定に従う
+  const sug = suggest(party, a6, 2);
+  ok(sug.length > 0 && sug.every(r => r.slot === 2), '型の提案も指定した枠だけを対象にする');
+}
+
+
 console.log('\n■ 同族条項（同じポケモンは選べない）');
 {
   const a4 = analyze(party.slice(0, 4));

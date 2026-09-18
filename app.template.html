@@ -358,6 +358,14 @@ tr.row.lvl-danger:hover td, tr.row.lvl-caution:hover td{filter:brightness(1.04)}
 .pname{font-size:13px; font-weight:700; margin-right:1px}
 .swaparrow{font-family:var(--mono); font-size:12px; color:var(--muted); line-height:1; margin:3px 0 3px 7px}
 .recname{font-size:13px; font-weight:700; align-self:center; margin-right:2px}
+.targetbox{display:flex; align-items:center; gap:6px; margin-left:auto; flex-wrap:wrap}
+.targetbox label{font-size:11.5px; color:var(--muted); white-space:nowrap}
+.targetbox select{
+  font:inherit; font-size:12px; color:var(--ink); background:var(--surface);
+  border:1px solid var(--line-2); border-radius:7px; padding:5px 8px; max-width:240px;
+}
+.targetbox select.set{border-color:var(--accent); color:var(--accent); font-weight:500}
+.targetbox select:hover{border-color:var(--accent)}
 .abchip{
   font-size:10px; font-weight:600; line-height:1; align-self:center;
   padding:4px 6px 5px; border-radius:4px;
@@ -456,7 +464,7 @@ footer a{color:var(--accent)}
   </section>
 
   <section>
-    <div class="shead"><h2>補完の提案</h2><span class="hint" id="sugHint"></span></div>
+    <div class="shead"><h2>補完の提案</h2><span class="hint" id="sugHint"></span><span id="sugTarget" class="targetbox"></span></div>
     <p class="lede"><b>「どんなタイプが足りないか」を出します。</b>誰を入れるかは次の「おすすめポケモン」で。<br>
     単タイプ18通り＋複合153通り＝<span class="num">171型</span>をすべて試し、危険タイプが最も減る型を選びます。6体埋まっていれば、どの枠を外すかも含めて総当たりします。</p>
     <p class="res-note" style="margin-top:0">数字は<b>入れ替えた後どう変わるか</b>です。<span class="num" style="color:var(--good)">マイナスが改善</span>（例: 危険 -1 なら危険タイプが1つ減る）。スコアだけは<span class="num" style="color:var(--good)">プラスが改善</span>です。</p>
@@ -464,7 +472,7 @@ footer a{color:var(--accent)}
   </section>
 
   <section>
-    <div class="shead"><h2>おすすめポケモン</h2><span class="hint" id="recHint"></span></div>
+    <div class="shead"><h2>おすすめポケモン</h2><span class="hint" id="recHint"></span><span id="recTarget" class="targetbox"></span></div>
     <p class="lede"><b>「実際に誰を入れるか」を出します。こちらがそのまま使える答えです。</b><br>
     レギュレーション使用可の全員を<b>とくせい込みで</b>総当たりします ― ふゆうの有無で守りの価値は変わるので、推奨のとくせいも添えます。すでにいる種は同族条項で候補から外れます。</p>
     <p class="res-note" style="margin-top:0">数字の読み方は上のセクションと同じ（マイナスが改善／スコアはプラスが改善）。</p>
@@ -765,7 +773,7 @@ function cmpKey(a, b) { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) re
  * 追加（空きがあるとき）または入れ替え（6体のとき）の最善手を探す。
  * 計算量: 追加 = 171通り、入れ替え = 6 × 171 = 1026通り。どちらも 1 フレームで終わる。
  */
-function suggest(party, base) {
+function suggest(party, base, targetSlot = -1) {
   if (!party.length) return [];
   const out = [];
   const baseVecs = party.map(defVector);
@@ -775,8 +783,11 @@ function suggest(party, base) {
       out.push({ mode: "add", types: c, s: summarizeVecs([...baseVecs, defVector({ types: c })]) });
     }
   } else {
+    // 枠を指定されていればそこだけ、指定がなければ全枠を試す
+    const slots = targetSlot >= 0 && targetSlot < party.length
+      ? [targetSlot] : party.map((_, i) => i);
     const next = baseVecs.slice();
-    for (let slot = 0; slot < party.length; slot++) {
+    for (const slot of slots) {
       const keep = next[slot];
       for (const c of CANDIDATES) {
         next[slot] = defVector({ types: c });
@@ -819,29 +830,29 @@ function suggest(party, base) {
  * 候補ごとに「相性に効くとくせい」を一通り試して、一番よかったものを推奨として添える。
  * 同族条項があるので、すでにいる種は候補から外す。
  */
-function recommend(party, base, limit = 8) {
+function recommend(party, base, limit = 8, targetSlot = -1) {
   if (!party.length) return [];
   const baseVecs = party.map(defVector);
-  const used = new Set(party.filter(m => m.mon).map(m => m.mon.sid));
   const full = party.length >= REG.rules.teamMax;
+  // 枠を指定されていればそこだけ。空きがあるときは追加(-1)。
+  const slots = !full ? [-1]
+    : (targetSlot >= 0 && targetSlot < party.length ? [targetSlot] : party.map((_, i) => i));
   const out = [];
 
   for (const p of POKEMON) {
-    if (!p.legal || used.has(p.sid)) continue;
+    if (!p.legal) continue;
     // 相性に効かないとくせいは結果が変わらないので試さない
     const abilityOptions = [null, ...p.abils.filter(a => ABILITY_FX[a])];
     for (const ab of abilityOptions) {
       const vec = defVector({ types: p.types, ability: ab, item: null });
-      if (full) {
+      for (const slot of slots) {
+        // 同族条項は「外す枠以外」で見る。枠が空くので、
+        // リザードン → メガリザードンＸ のような同種別フォルムへの入れ替えは許す。
+        if (party.some((m, k) => k !== slot && m.mon && m.mon.sid === p.sid)) continue;
+        if (slot >= 0 && party[slot].mon && party[slot].mon.i === p.i) continue;   // 自分自身
         const next = baseVecs.slice();
-        for (let slot = 0; slot < party.length; slot++) {
-          const keep = next[slot];
-          next[slot] = vec;
-          out.push({ p, ability: ab, slot, s: summarizeVecs(next) });
-          next[slot] = keep;
-        }
-      } else {
-        out.push({ p, ability: ab, slot: -1, s: summarizeVecs([...baseVecs, vec]) });
+        if (slot < 0) next.push(vec); else next[slot] = vec;
+        out.push({ p, ability: ab, slot, s: summarizeVecs(next) });
       }
     }
   }
@@ -942,6 +953,7 @@ const SAMPLE = ["ガブリアス", "リザードン", "カビゴン", "ゲンガ
 
 let party = [];          // [{ types:number[], name:string, mon:object|null }]
 let sortMode = "risk";
+let targetSlot = -1;     // -1 = おまかせ（最も効く枠を自動で選ぶ）
 
 const memberOfMon   = p  => ({ types: p.types, name: p.name, mon: p, ability: null, item: null });
 const memberOfTypes = ts => ({ types: ts, name: ts.map(t => TYPES[t].ja).join("・"), mon: null, ability: null, item: null });
@@ -998,6 +1010,7 @@ function typeChip(t) {
 }
 
 function render() {
+  if (targetSlot >= party.length) targetSlot = -1;   // 枠が減ったら指定を解除
   const a = analyze(party);
   renderVerdict(a);
   renderReadout(a);
@@ -1325,6 +1338,27 @@ function renderCoverage(a) {
   box.append(p3);
 }
 
+/**
+ * 「どの枠を入れ替えるか」の選択。
+ * おまかせだと最も効く枠に提案が集中するので、残したいポケモンがいる場合に指定できる。
+ * 2つのセクションで同じ状態を共有する。
+ */
+function renderTargetPicker(boxId) {
+  const box = $(boxId);
+  box.textContent = "";
+  if (party.length < REG.rules.teamMax) return;   // 空きがあるときは「追加」なので不要
+
+  const lab = el("label", null, "入れ替える枠");
+  lab.htmlFor = boxId + "Sel";
+  const sel = el("select");
+  sel.id = boxId + "Sel";
+  sel.append(new Option("おまかせ（最も効く枠）", "-1", false, targetSlot === -1));
+  party.forEach((m, i) => sel.append(new Option(`${i + 1}. ${m.name}`, String(i), false, targetSlot === i)));
+  if (targetSlot >= 0) sel.classList.add("set");
+  sel.onchange = e => { targetSlot = Number(e.target.value); render(); };
+  box.append(lab, sel);
+}
+
 /** 「外す」側の1行。枠番号はパーティの並び・行列の列番号と同じ数字。 */
 function outLine(slot) {
   const m = party[slot];
@@ -1369,10 +1403,11 @@ function renderSuggest(a) {
 
   const swap = party.length === 6;
   $("sugHint").textContent = swap
-    ? "6体埋まっているので、どれかと入れ替える案を出します"
+    ? (targetSlot >= 0 ? `${targetSlot + 1}. ${party[targetSlot].name} を外す前提で` : "外す枠も含めて総当たり")
     : `${party.length + 1} 体目として足すなら`;
+  renderTargetPicker("sugTarget");
 
-  suggest(party, a).forEach((r, i) => {
+  suggest(party, a, targetSlot).forEach((r, i) => {
     const row = el("div", "sugrow" + (i === 0 ? " top" : ""));
     row.append(el("div", "rank", String(i + 1)));
 
@@ -1416,12 +1451,16 @@ function renderRecommend(a) {
   }
 
   const t0 = performance.now();
-  const list = recommend(party, a);
+  const list = recommend(party, a, 8, targetSlot);
   const ms = performance.now() - t0;
   const full = party.length >= REG.rules.teamMax;
   $("recHint").textContent =
-    `${POKEMON.filter(p => p.legal).length} 件を総当たり・${Math.round(ms)}ms` + (full ? "／入れ替え前提" : "");
-  $("recNote").textContent = "同じタイプ構成は2件までに間引いています（上位が同型で埋まらないように）。";
+    `${POKEMON.filter(p => p.legal).length} 件を総当たり・${Math.round(ms)}ms`
+    + (full ? (targetSlot >= 0 ? `／${targetSlot + 1}. ${party[targetSlot].name} を外す` : "／外す枠も総当たり") : "");
+  renderTargetPicker("recTarget");
+  $("recNote").textContent = targetSlot >= 0
+    ? `${targetSlot + 1}. ${party[targetSlot].name} の代わりに入れる候補です。他の枠は動かしません。同じタイプ構成は2件までに間引いています。`
+    : "同じタイプ構成は2件までに間引いています。残したいポケモンがいる場合は、右上の「入れ替える枠」で指定してください。";
 
   list.forEach((r, i) => {
     const row = el("div", "sugrow" + (i === 0 ? " top" : ""));
