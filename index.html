@@ -339,6 +339,24 @@ tr.row.lvl-danger:hover td, tr.row.lvl-caution:hover td{filter:brightness(1.04)}
 .sugdelta .up{color:var(--good)} .sugdelta .down{color:var(--crit)}
 .sugex{font-size:11px; color:var(--muted); margin-top:3px; overflow-wrap:anywhere}
 .swapnote{font-size:11px; color:var(--muted); align-self:center}
+
+/* 入れ替えは「外す側」と「入れる側」を上下に並べて、どれが消えるか一目で分かるようにする */
+.swapline{display:flex; align-items:center; gap:5px; flex-wrap:wrap}
+.swapline + .swapline{margin-top:2px}
+.swapout{opacity:.7}
+.sidelabel{
+  font-size:9.5px; font-weight:700; letter-spacing:.06em; line-height:1; flex:none;
+  padding:4px 6px 5px; border-radius:4px;
+}
+.sidelabel.out{background:var(--crit-1); color:var(--crit)}
+.sidelabel.in {background:var(--good-1); color:var(--good)}
+.slotno{
+  font-family:var(--mono); font-size:11px; font-weight:700; flex:none;
+  width:19px; height:19px; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:4px; background:var(--surface-3); color:var(--ink-2);
+}
+.pname{font-size:13px; font-weight:700; margin-right:1px}
+.swaparrow{font-family:var(--mono); font-size:12px; color:var(--muted); line-height:1; margin:3px 0 3px 7px}
 .recname{font-size:13px; font-weight:700; align-self:center; margin-right:2px}
 .abchip{
   font-size:10px; font-weight:600; line-height:1; align-self:center;
@@ -439,13 +457,17 @@ footer a{color:var(--accent)}
 
   <section>
     <div class="shead"><h2>補完の提案</h2><span class="hint" id="sugHint"></span></div>
-    <p class="lede">単タイプ18通り＋複合153通り＝<span class="num">171型</span>をすべて試し、危険タイプが最も減る構成を選びます。パーティが6体埋まっているときは、どの枠を差し替えるかも含めて総当たりします。</p>
+    <p class="lede"><b>「どんなタイプが足りないか」を出します。</b>誰を入れるかは次の「おすすめポケモン」で。<br>
+    単タイプ18通り＋複合153通り＝<span class="num">171型</span>をすべて試し、危険タイプが最も減る型を選びます。6体埋まっていれば、どの枠を外すかも含めて総当たりします。</p>
+    <p class="res-note" style="margin-top:0">数字は<b>入れ替えた後どう変わるか</b>です。<span class="num" style="color:var(--good)">マイナスが改善</span>（例: 危険 -1 なら危険タイプが1つ減る）。スコアだけは<span class="num" style="color:var(--good)">プラスが改善</span>です。</p>
     <div class="sug" id="sug"></div>
   </section>
 
   <section>
     <div class="shead"><h2>おすすめポケモン</h2><span class="hint" id="recHint"></span></div>
-    <p class="lede">型ではなく実在のポケモンで答えます。レギュレーション使用可の全員を、<b>とくせい込みで</b>総当たりして並べます ― ふゆうの有無で守りの価値は変わるので、推奨のとくせいも一緒に出します。同族条項があるので、すでにいる種は候補から外しています。</p>
+    <p class="lede"><b>「実際に誰を入れるか」を出します。こちらがそのまま使える答えです。</b><br>
+    レギュレーション使用可の全員を<b>とくせい込みで</b>総当たりします ― ふゆうの有無で守りの価値は変わるので、推奨のとくせいも添えます。すでにいる種は同族条項で候補から外れます。</p>
+    <p class="res-note" style="margin-top:0">数字の読み方は上のセクションと同じ（マイナスが改善／スコアはプラスが改善）。</p>
     <div class="sug" id="rec"></div>
     <p class="res-note" id="recNote"></p>
   </section>
@@ -1303,6 +1325,36 @@ function renderCoverage(a) {
   box.append(p3);
 }
 
+/** 「外す」側の1行。枠番号はパーティの並び・行列の列番号と同じ数字。 */
+function outLine(slot) {
+  const m = party[slot];
+  const d = el("div", "swapline swapout");
+  d.append(el("span", "sidelabel out", "外す"), el("span", "slotno", String(slot + 1)),
+           el("span", "pname", m.name));
+  m.types.forEach(t => d.append(typeChip(t)));
+  return d;
+}
+
+/** 危険/注意/手薄/スコアの増減。マイナスが改善。 */
+function deltaLine(d) {
+  const one = (v, label) => {
+    const w = el("span");
+    w.append(document.createTextNode(label + " "),
+             el("b", v < 0 ? "up" : v > 0 ? "down" : null, (v > 0 ? "+" : "") + v));
+    return w;
+  };
+  const box = el("div", "sugdelta");
+  box.append(one(d.danger, "危険"), document.createTextNode("　"),
+             one(d.caution, "注意"), document.createTextNode("　"),
+             one(d.thin, "手薄"), document.createTextNode("　"));
+  const sc = el("span");
+  sc.append(document.createTextNode("スコア "),
+            el("b", d.score > 0 ? "up" : d.score < 0 ? "down" : null,
+               (d.score > 0 ? "+" : "") + d.score.toFixed(1)));
+  box.append(sc);
+  return box;
+}
+
 function renderSuggest(a) {
   const box = $("sug");
   box.textContent = "";
@@ -1316,36 +1368,26 @@ function renderSuggest(a) {
   }
 
   const swap = party.length === 6;
-  $("sugHint").textContent = swap ? "6体埋まっているので入れ替え案" : `${party.length + 1} 体目として`;
-
-  const delta = (v, label) => {
-    const w = el("span");
-    w.append(document.createTextNode(label + " "),
-             el("b", v < 0 ? "up" : v > 0 ? "down" : null, (v > 0 ? "+" : "") + v));
-    return w;
-  };
+  $("sugHint").textContent = swap
+    ? "6体埋まっているので、どれかと入れ替える案を出します"
+    : `${party.length + 1} 体目として足すなら`;
 
   suggest(party, a).forEach((r, i) => {
     const row = el("div", "sugrow" + (i === 0 ? " top" : ""));
     row.append(el("div", "rank", String(i + 1)));
 
     const main = el("div", "sugmain");
-    const head = el("div", "chips");
-    r.types.forEach(t => head.append(typeChip(t)));
-    if (swap) head.append(el("span", "swapnote", "← " + party[r.slot].name + " と交代"));
-    main.append(head);
+    if (swap) {
+      main.append(outLine(r.slot), el("div", "swaparrow", "↓"));
+    }
+    const inLine = el("div", "swapline");
+    inLine.append(el("span", "sidelabel in", swap ? "入れる" : "追加"));
+    if (!swap) inLine.append(el("span", "slotno", String(party.length + 1)));
+    r.types.forEach(t => inLine.append(typeChip(t)));
+    main.append(inLine);
 
-    const d = el("div", "sugdelta");
-    d.append(delta(r.delta.danger, "危険"), document.createTextNode("　"),
-             delta(r.delta.caution, "注意"), document.createTextNode("　"),
-             delta(r.delta.thin, "手薄"), document.createTextNode("　"));
-    const sc = el("span");
-    sc.append(document.createTextNode("スコア "),
-              el("b", r.delta.score > 0 ? "up" : r.delta.score < 0 ? "down" : null,
-                 (r.delta.score > 0 ? "+" : "") + r.delta.score.toFixed(1)));
-    d.append(sc);
-    main.append(d, el("div", "sugex", r.examples.length
-      ? "例: " + r.examples.map(p => p.name).join("、")
+    main.append(deltaLine(r.delta), el("div", "sugex", r.examples.length
+      ? "この型のポケモン: " + r.examples.map(p => p.name).join("、")
       : "この組み合わせを持つポケモンは（伝説・幻を除くと）いません"));
     row.append(main);
 
@@ -1381,37 +1423,22 @@ function renderRecommend(a) {
     `${POKEMON.filter(p => p.legal).length} 件を総当たり・${Math.round(ms)}ms` + (full ? "／入れ替え前提" : "");
   $("recNote").textContent = "同じタイプ構成は2件までに間引いています（上位が同型で埋まらないように）。";
 
-  const delta = (v, label) => {
-    const w = el("span");
-    w.append(document.createTextNode(label + " "),
-             el("b", v < 0 ? "up" : v > 0 ? "down" : null, (v > 0 ? "+" : "") + v));
-    return w;
-  };
-
   list.forEach((r, i) => {
     const row = el("div", "sugrow" + (i === 0 ? " top" : ""));
     row.append(el("div", "rank", String(i + 1)));
 
     const main = el("div", "sugmain");
-    const head = el("div", "chips");
-    const nm = el("span", "recname", r.p.name);
-    head.append(nm);
-    r.p.types.forEach(t => head.append(typeChip(t)));
-    if (r.p.kind) head.append(kindChip(r.p.kind));
-    if (r.ability != null) head.append(el("span", "abchip", "とくせい " + ABILITY_JA[r.ability]));
-    if (full) head.append(el("span", "swapnote", "← " + party[r.slot].name + " と交代"));
-    main.append(head);
-
-    const d = el("div", "sugdelta");
-    d.append(delta(r.delta.danger, "危険"), document.createTextNode("　"),
-             delta(r.delta.caution, "注意"), document.createTextNode("　"),
-             delta(r.delta.thin, "手薄"), document.createTextNode("　"));
-    const sc = el("span");
-    sc.append(document.createTextNode("スコア "),
-              el("b", r.delta.score > 0 ? "up" : r.delta.score < 0 ? "down" : null,
-                 (r.delta.score > 0 ? "+" : "") + r.delta.score.toFixed(1)));
-    d.append(sc);
-    main.append(d);
+    if (full) {
+      main.append(outLine(r.slot), el("div", "swaparrow", "↓"));
+    }
+    const inLine = el("div", "swapline");
+    inLine.append(el("span", "sidelabel in", full ? "入れる" : "追加"));
+    if (!full) inLine.append(el("span", "slotno", String(party.length + 1)));
+    inLine.append(el("span", "pname", r.p.name));
+    r.p.types.forEach(t => inLine.append(typeChip(t)));
+    if (r.p.kind) inLine.append(kindChip(r.p.kind));
+    if (r.ability != null) inLine.append(el("span", "abchip", "とくせい " + ABILITY_JA[r.ability]));
+    main.append(inLine, deltaLine(r.delta));
     row.append(main);
 
     const btn = el("button", "btn sm" + (i === 0 ? " primary" : ""), full ? "入れ替える" : "追加");
