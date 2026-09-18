@@ -129,7 +129,13 @@ section + section{border-top:1px solid var(--line)}
 .lede{margin:2px 0 16px; color:var(--ink-2); font-size:12.5px; max-width:70ch}
 
 /* ===== パーティ =========================================================== */
-.slots{display:grid; grid-template-columns:repeat(auto-fill,minmax(176px,1fr)); gap:8px}
+/* 6枠を 3列 × 2行 で固定する。画面幅で列数が変わると、
+   行列の列番号(1〜6)と並びの対応が読み取りにくくなるため。 */
+.slots{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px}
+@media (max-width:480px){
+  /* 3列だと1枠 110px を切り、とくせい／もちものが操作できなくなるので2列に落とす */
+  .slots{grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px}
+}
 .slotcfg{display:grid; gap:4px; margin-top:auto}
 .slotcfg select{
   width:100%; max-width:100%; font:inherit; font-size:11px; line-height:1.3;
