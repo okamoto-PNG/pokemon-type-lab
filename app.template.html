@@ -338,6 +338,15 @@ tr.row.lvl-danger:hover td, tr.row.lvl-caution:hover td{filter:brightness(1.04)}
 .sugdelta b{font-family:var(--mono); font-weight:600; font-variant-numeric:tabular-nums}
 .sugdelta .up{color:var(--good)} .sugdelta .down{color:var(--crit)}
 .sugex{font-size:11px; color:var(--muted); margin-top:3px; overflow-wrap:anywhere}
+/* 候補はテキストではなくボタン。どれを入れるかは必ずユーザーが選ぶ。 */
+.exlist{display:flex; flex-wrap:wrap; gap:4px; margin-top:7px; align-items:center}
+.exlabel{font-size:11px; color:var(--muted); margin-right:2px; flex:none}
+.exbtn{
+  display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;
+  border:1px solid var(--line-2); background:var(--surface); border-radius:6px;
+  padding:4px 8px 5px; font-size:11.5px; font-weight:500;
+}
+.exbtn:hover{border-color:var(--accent); color:var(--accent)}
 .swapnote{font-size:11px; color:var(--muted); align-self:center}
 
 /* 入れ替えは「外す側」と「入れる側」を上下に並べて、どれが消えるか一目で分かるようにする */
@@ -467,7 +476,7 @@ footer a{color:var(--accent)}
     <div class="shead"><h2>補完の提案</h2><span class="hint" id="sugHint"></span><span id="sugTarget" class="targetbox"></span></div>
     <p class="lede"><b>「どんなタイプが足りないか」を出します。</b>誰を入れるかは次の「おすすめポケモン」で。<br>
     単タイプ18通り＋複合153通り＝<span class="num">171型</span>をすべて試し、危険タイプが最も減る型を選びます。6体埋まっていれば、どの枠を外すかも含めて総当たりします。</p>
-    <p class="res-note" style="margin-top:0">数字は<b>入れ替えた後どう変わるか</b>です。<span class="num" style="color:var(--good)">マイナスが改善</span>（例: 危険 -1 なら危険タイプが1つ減る）。スコアだけは<span class="num" style="color:var(--good)">プラスが改善</span>です。</p>
+    <p class="res-note" style="margin-top:0"><b>候補は並べるだけで、勝手には入りません。</b>名前のボタンを押したものが入ります。<br>数字は<b>入れ替えた後どう変わるか</b>です。<span class="num" style="color:var(--good)">マイナスが改善</span>（例: 危険 -1 なら危険タイプが1つ減る）。スコアだけは<span class="num" style="color:var(--good)">プラスが改善</span>です。</p>
     <div class="sug" id="sug"></div>
   </section>
 
@@ -809,7 +818,7 @@ function suggest(party, base, targetSlot = -1) {
     .filter(p => p.legal)
     .filter(p => !usedSid.has(p.sid) || (r.mode === "swap" && party[r.slot].mon?.sid === p.sid))
     .sort((a, b) => (a.kind - b.kind) || (a.i - b.i))
-    .slice(0, 4);
+    .slice(0, 6);
 
   const withDelta = r => ({
     ...r,
@@ -1429,28 +1438,38 @@ function renderSuggest(a) {
     r.types.forEach(t => inLine.append(typeChip(t)));
     main.append(inLine);
 
-    const ex = el("div", "sugex");
+    main.append(deltaLine(r.delta));
+
+    const put = m => { if (swap) party[r.slot] = m; else party.push(m); render(); };
+
     if (r.examples.length) {
-      ex.textContent = "この型で使えるポケモン: " + r.examples.map(p => p.name).join("、");
+      // 候補は並べるだけ。どれを入れるかは押した人が決める。
+      const ex = el("div", "exlist");
+      ex.append(el("span", "exlabel", swap ? "入れる候補:" : "追加する候補:"));
+      for (const p of r.examples) {
+        const b = el("button", "exbtn");
+        b.type = "button";
+        b.append(document.createTextNode(p.name));
+        if (p.kind) b.append(kindChip(p.kind));
+        b.title = swap ? `${party[r.slot].name} を外して ${p.name} を入れる` : `${p.name} を追加する`;
+        b.onclick = () => put(memberOfMon(p));
+        ex.append(b);
+      }
+      main.append(ex);
+      row.append(main);
     } else {
-      // 型としては効くが、この型を持つ使用可ポケモンがいない ― それ自体が答えなので黙って隠さない
+      // 型としては効くが、この型を持つ使用可ポケモンがいない
+      const ex = el("div", "sugex");
       ex.textContent = `この型に当てはまる ${REG.id} 使用可のポケモンはいません（型の参考として表示）`;
       ex.style.color = "var(--warn)";
+      main.append(ex);
+      row.append(main);
+      const btn = el("button", "btn sm", "型だけ試す");
+      btn.type = "button";
+      btn.title = "実在ポケモンがいないため、タイプだけの仮枠として入ります";
+      btn.onclick = () => put(memberOfTypes(r.types));
+      row.append(btn);
     }
-    main.append(deltaLine(r.delta), ex);
-    row.append(main);
-
-    const hasMon = r.examples.length > 0;
-    const btn = el("button", "btn sm" + (i === 0 && hasMon ? " primary" : ""),
-                   hasMon ? (swap ? "入れ替える" : "この枠を追加") : "型だけ試す");
-    btn.type = "button";
-    if (!hasMon) btn.title = "実在ポケモンがいないため、タイプだけの仮枠として入ります";
-    btn.onclick = () => {
-      const m = hasMon ? memberOfMon(r.examples[0]) : memberOfTypes(r.types);
-      if (swap) party[r.slot] = m; else party.push(m);
-      render();
-    };
-    row.append(btn);
     box.append(row);
   });
 }
