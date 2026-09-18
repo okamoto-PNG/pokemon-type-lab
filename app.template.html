@@ -1494,9 +1494,9 @@ function renderRecommend(a) {
     `${POKEMON.filter(p => p.legal).length} 件を総当たり・${Math.round(ms)}ms`
     + (full ? (targetSlot >= 0 ? `／${targetSlot + 1}. ${party[targetSlot].name} を外す` : "／外す枠も総当たり") : "");
   renderTargetPicker("recTarget");
-  $("recNote").textContent = targetSlot >= 0
+  $("recNote").textContent = "順位は効果の大きい順です。押すまで何も入りません。" + (targetSlot >= 0 ? "" : " ") + (targetSlot >= 0
     ? `${targetSlot + 1}. ${party[targetSlot].name} の代わりに入れる候補です。他の枠は動かしません。同じタイプ構成は2件までに間引いています。`
-    : "同じタイプ構成は2件までに間引いています。残したいポケモンがいる場合は、右上の「入れ替える枠」で指定してください。";
+    : "同じタイプ構成は2件までに間引いています。残したいポケモンがいる場合は、右上の「入れ替える枠」で指定してください。");
 
   list.forEach((r, i) => {
     const row = el("div", "sugrow" + (i === 0 ? " top" : ""));
@@ -1516,8 +1516,10 @@ function renderRecommend(a) {
     main.append(inLine, deltaLine(r.delta));
     row.append(main);
 
-    const btn = el("button", "btn sm" + (i === 0 ? " primary" : ""), full ? "入れ替える" : "追加");
+    // 1位だけ塗りつぶすと「すでに選ばれている」ように見えるので、候補は全部同じ見た目にする
+    const btn = el("button", "exbtn", full ? "これを入れる" : "これを追加");
     btn.type = "button";
+    btn.title = full ? `${party[r.slot].name} を外して ${r.p.name} を入れる` : `${r.p.name} を追加する`;
     btn.onclick = () => {
       const m = memberOfMon(r.p);
       m.ability = r.ability;
