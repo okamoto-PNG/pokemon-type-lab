@@ -201,6 +201,35 @@ console.log('\n■ ベクトル化しても結果が変わらない');
   ok(v.length === 18 && v[ti('じめん')] === 0, 'defVector にとくせいが反映される');
 }
 
+console.log('\n■ 同族条項（同じポケモンは選べない）');
+{
+  const a4 = analyze(party.slice(0, 4));
+  const used = new Set(party.slice(0, 4).map(m => m.mon.sid));
+  const sug = suggest(party.slice(0, 4), a4);
+  ok(sug.every(r => r.examples.every(p => !used.has(p.sid))),
+     '型提案の実例に編成済みの種が出てこない');
+  ok(sug.some(r => r.examples.length), '実例自体はちゃんと出る（空振りにしていない）');
+}
+{
+  // 入れ替え提案では、外す枠の種だけは実例に出てよい（その枠が空くため）
+  const a6 = analyze(party);
+  const sug = suggest(party, a6);
+  const used = new Set(party.map(m => m.mon.sid));
+  ok(sug.every(r => r.examples.every(p => !used.has(p.sid) || party[r.slot].mon.sid === p.sid)),
+     '入れ替え提案でも、外す枠以外の編成済み種は出てこない');
+}
+{
+  const rec = recommend(party, analyze(party));
+  const used = new Set(party.map(m => m.mon.sid));
+  ok(rec.every(r => !used.has(r.p.sid)), 'おすすめポケモンにも編成済みの種が出てこない');
+}
+{
+  // 保存データ等から重複が紛れ込んだ場合の歯止めは残っている
+  const dup = [mon('リザードン'), mon('メガリザードンＸ'), mon('カビゴン'), mon('ゲンガー')]
+    .map(m => ({ ...m, ability: null, item: null }));
+  ok(!checkRules(dup).find(r => r.id === 'species').ok, '万一混入しても判定側で弾ける');
+}
+
 console.log('\n■ 空パーティ');
 const e = analyze([]);
 ok(e.rows.length === 18 && e.offense.uncovered.length === 18, '空でも落ちない');

@@ -93,6 +93,33 @@ header.bar{
 .stat.is-crit .v{color:var(--crit)} .stat.is-warn .v{color:var(--warn)} .stat.is-good .v{color:var(--good)}
 .stat .sub{font-size:10.5px; color:var(--muted); margin-top:1px; line-height:1.4}
 
+/* ===== 判定バナー ========================================================= */
+.verdict{
+  display:flex; gap:14px; align-items:flex-start; margin-top:12px;
+  border:1px solid var(--line); border-radius:var(--r); padding:14px 16px 15px;
+  background:var(--surface); border-left-width:5px;
+}
+.verdict.is-crit{border-left-color:var(--crit); background:color-mix(in srgb, var(--crit-1) 55%, var(--surface))}
+.verdict.is-warn{border-left-color:var(--warn); background:color-mix(in srgb, var(--warn-1) 55%, var(--surface))}
+.verdict.is-good{border-left-color:var(--good); background:color-mix(in srgb, var(--good-1) 55%, var(--surface))}
+.verdict.is-none{border-left-color:var(--line-2)}
+.verdict .mark{
+  font-family:var(--mono); font-size:26px; font-weight:600; line-height:1; flex:none;
+  width:34px; text-align:center; padding-top:2px;
+}
+.verdict.is-crit .mark{color:var(--crit)}
+.verdict.is-warn .mark{color:var(--warn)}
+.verdict.is-good .mark{color:var(--good)}
+.verdict.is-none .mark{color:var(--muted)}
+.verdict .body{min-width:0; flex:1}
+.verdict .head{font-size:16px; font-weight:700; line-height:1.4; letter-spacing:-.01em}
+.verdict.is-crit .head{color:var(--crit)}
+.verdict.is-warn .head{color:var(--warn)}
+.verdict.is-good .head{color:var(--good)}
+.verdict .why{font-size:12.5px; color:var(--ink-2); margin-top:4px}
+.verdict .chips{margin-top:8px}
+@media (max-width:480px){ .verdict{padding:12px 13px 13px; gap:10px} .verdict .head{font-size:14.5px} }
+
 /* ===== セクション ========================================================= */
 section{padding-block:30px}
 section + section{border-top:1px solid var(--line)}
@@ -176,6 +203,9 @@ input[type="search"]::placeholder{color:var(--muted)}
   padding:5px 9px 5px 7px; font-size:12px; text-align:left;
 }
 .res:hover{border-color:var(--accent)}
+.res:disabled{opacity:.45; cursor:not-allowed}
+.res.dup{opacity:1; border-style:dashed; color:var(--muted)}
+.res.dup:hover{border-color:var(--line)}
 .res .swatch{display:flex; gap:2px; flex:none}
 .res .sq{width:7px; height:14px; border-radius:2px}
 .res-note{font-size:11.5px; color:var(--muted); margin-top:10px}
@@ -226,16 +256,16 @@ table.matrix thead th{
   font-size:10px; font-weight:600; color:var(--ink-2); padding:6px 3px; vertical-align:bottom;
 }
 table.matrix thead th.h-type{text-align:left; padding-left:10px; width:78px}
-table.matrix thead th.h-mon{width:32px}
+table.matrix thead th.h-mon{width:46px; padding-inline:2px}
 table.matrix thead th .n{font-family:var(--mono); font-size:12px; color:var(--ink); display:block}
 table.matrix thead th .mn{
-  display:none; font-size:8.5px; font-weight:400; color:var(--muted);
-  max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:1px auto 0;
+  font-size:8.5px; font-weight:400; color:var(--ink-2); max-width:100%;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 table.matrix thead th.h-bar{width:60px} table.matrix thead th.h-j{width:56px; padding-right:8px}
 @media (min-width:760px){
-  table.matrix thead th.h-mon{width:68px}
-  table.matrix thead th .mn{display:block}
+  table.matrix thead th.h-mon{width:74px}
+  table.matrix thead th .mn{font-size:10px}
   table.matrix thead th.h-type{width:96px}
 }
 tr.row:hover td{background:color-mix(in srgb, var(--accent) 7%, transparent)}
@@ -266,8 +296,16 @@ td.judge{padding-right:8px; text-align:right}
 .j-caution{background:var(--warn-1); color:var(--warn); box-shadow:inset 0 0 0 1px currentColor}
 .j-thin{background:transparent; color:var(--muted); box-shadow:inset 0 0 0 1px var(--line-2)}
 .j-safe{background:transparent; color:var(--good)}
-tr.row.lvl-danger td.t-name{box-shadow:inset 3px 0 0 var(--crit)}
+tr.row.lvl-danger  td{background:color-mix(in srgb, var(--crit-1) 45%, transparent)}
+tr.row.lvl-caution td{background:color-mix(in srgb, var(--warn-1) 32%, transparent)}
+tr.row.lvl-danger  td.t-name{box-shadow:inset 3px 0 0 var(--crit)}
 tr.row.lvl-caution td.t-name{box-shadow:inset 3px 0 0 var(--warn)}
+tr.row.lvl-danger:hover td, tr.row.lvl-caution:hover td{filter:brightness(1.04)}
+
+/* 列がどのポケモンかを、番号・名前・タイプ色の3つで分かるようにする */
+.mhead{display:flex; flex-direction:column; align-items:center; gap:2px}
+.mbar{display:flex; width:100%; height:3px; border-radius:2px; overflow:hidden}
+.mbar i{flex:1}
 
 .legend{display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:10px; font-size:10.5px; color:var(--muted); align-items:center}
 .legend .m{display:inline-block; margin:0 3px 0 0; padding:3px 6px; font-size:10px; vertical-align:middle}
@@ -347,6 +385,7 @@ footer a{color:var(--accent)}
     <div class="regbar" id="regbar"></div>
     <h1>その6体、同じタイプで<br>まとめて落ちませんか。</h1>
     <p>パーティを組むと、18の攻撃タイプそれぞれについて「何体が弱点を突かれ、何体が受けられるか」を総当たりで計算します。穴が見つかったら、7体目（または入れ替え）に何型を置けばいちばん塞がるかも全探索で出します。</p>
+    <div class="verdict" id="verdict"></div>
     <div class="readout" id="readout"></div>
   </div>
 
@@ -724,6 +763,8 @@ function suggest(party, base) {
   const seen = new Map();
   for (const r of out) { const k = typeKey(r.types); if (!seen.has(k)) seen.set(k, r); }
 
+  // 同族条項があるので、既に編成済みの種は実例から外す（入れ替え対象の枠は空くので例外）
+  const usedSid = new Set(party.filter(m => m.mon).map(m => m.mon.sid));
   return [...seen.values()].slice(0, 5).map(r => ({
     ...r,
     delta: {
@@ -736,6 +777,7 @@ function suggest(party, base) {
     // 実例はレギュ使用可 → 原種 の順に優先する
     examples: (BY_KEY.get(typeKey(r.types)) || [])
       .filter(p => !p.legend)
+      .filter(p => !usedSid.has(p.sid) || (r.mode === "swap" && party[r.slot].mon?.sid === p.sid))
       .sort((a, b) => (b.legal - a.legal) || (a.kind - b.kind) || (a.i - b.i))
       .slice(0, 4),
   }));
@@ -929,6 +971,7 @@ function typeChip(t) {
 
 function render() {
   const a = analyze(party);
+  renderVerdict(a);
   renderReadout(a);
   renderSlots();
   renderRules();
@@ -941,6 +984,59 @@ function render() {
     ? `${party.length}/6 体 ・ 危険 ${a.danger} タイプ`
     : "パーティ未設定";
   save();
+}
+
+/**
+ * 数字を読まなくても結論が分かるように、いちばん重い問題を1文で出す。
+ * 危険 > 注意 > 手薄 の順に、最初に見つかった層だけを見せる（全部並べると結局読めない）。
+ */
+function renderVerdict(a) {
+  const box = $("verdict");
+  box.textContent = "";
+  box.className = "verdict";
+
+  const pick = lv => a.rows.filter(r => r.level === lv).sort((x, y) => y.worst - x.worst || y.weak - x.weak);
+  const danger = pick("danger"), caution = pick("caution"), thin = pick("thin");
+
+  let tone, mark, head, why, types;
+  if (!party.length) {
+    [tone, mark, head, why, types] = ["is-none", "–", "パーティが空です", "下の検索から6体まで選んでください。", []];
+  } else if (danger.length) {
+    types = danger;
+    tone = "is-crit"; mark = "!";
+    head = danger.length === 1
+      ? `${danger[0].ja} が危険です`
+      : `${danger.length} タイプが危険です`;
+    const w = danger[0];
+    why = `${w.ja} は ${w.weak} 体が弱点を突かれ、半減できる味方が ${w.res} 体しかいません。まとめて崩される形です。`;
+  } else if (caution.length) {
+    types = caution;
+    tone = "is-warn"; mark = "△";
+    head = `${caution.length} タイプが要注意です`;
+    why = "壊滅する形ではありませんが、弱点の数が受け皿を上回っています。下の「おすすめポケモン」で埋められます。";
+  } else if (thin.length) {
+    types = thin;
+    tone = "is-warn"; mark = "−";
+    head = `${thin.length} タイプが手薄です`;
+    why = "弱点は突かれませんが、半減して受けられる味方もいません。";
+  } else {
+    types = [];
+    tone = "is-good"; mark = "✓";
+    head = "穴はありません";
+    why = "18タイプすべてに、弱点を突かれないか受けられる味方がいます。";
+  }
+
+  box.classList.add(tone);
+  box.append(el("span", "mark", mark));
+  const body = el("div", "body");
+  body.append(el("div", "head", head), el("div", "why", why));
+  if (types.length) {
+    const c = el("div", "chips");
+    types.slice(0, 8).forEach(r => c.append(typeChip(r.t)));
+    if (types.length > 8) c.append(el("span", "swapnote", `ほか ${types.length - 8}`));
+    body.append(c);
+  }
+  box.append(body);
 }
 
 function renderReadout(a) {
@@ -1101,7 +1197,12 @@ function renderMatrix(a) {
   party.forEach((m, i) => {
     const th = el("th", "h-mon");
     th.title = m.name;
-    th.append(el("span", "n", String(i + 1)), el("span", "mn", m.name));
+    const h = el("div", "mhead");
+    // タイプ色の帯を付けて、番号だけでなく色でも列を追えるようにする
+    const bar = el("div", "mbar");
+    m.types.forEach(t => { const b = el("i"); b.style.background = TYPE_COLOR[t]; bar.append(b); });
+    h.append(el("span", "n", String(i + 1)), el("span", "mn", m.name), bar);
+    th.append(h);
     htr.append(th);
   });
   htr.append(el("th", "h-bar", "弱/耐"), el("th", "h-j", "判定"));
@@ -1331,6 +1432,8 @@ function renderResults() {
   }
   const full = party.length >= 6;
   const forms = $("incForms").checked;
+  // 同じポケモンは1体まで。警告ではなく、最初から押せないようにする。
+  const usedSid = new Set(party.filter(m => m.mon).map(m => m.mon.sid));
   const legalOnly = $("legalOnly").checked;
   const hits = POKEMON.filter(p =>
     (forms || p.kind === 0) &&
@@ -1341,9 +1444,11 @@ function renderResults() {
   const shown = hits.slice(0, 80);
 
   for (const p of shown) {
-    const b = el("button", "res");
+    const dup = usedSid.has(p.sid);
+    const b = el("button", "res" + (dup ? " dup" : ""));
     b.type = "button";
-    b.disabled = full;
+    b.disabled = full || dup;
+    if (dup) b.title = "同じポケモンは1体までです（編成済み）";
     const sw = el("span", "swatch");
     p.types.forEach(t => {
       const s = el("span", "sq");
@@ -1353,12 +1458,19 @@ function renderResults() {
     b.append(sw, document.createTextNode(p.name));
     if (p.kind) b.append(kindChip(p.kind));
     if (!p.legal) b.append(el("span", "kchip ng", REG.id + " 不可"));
-    b.onclick = () => { if (party.length < 6) { party.push(memberOfMon(p)); render(); } };
+    if (dup) b.append(el("span", "kchip", "編成済み"));
+    b.onclick = () => {
+      if (party.length >= 6 || usedSid.has(p.sid)) return;   // 二重の歯止め
+      party.push(memberOfMon(p));
+      render();
+    };
     box.append(b);
   }
+  const dupCount = shown.filter(p => usedSid.has(p.sid)).length;
   $("resNote").textContent = !hits.length ? "見つかりませんでした。"
     : full ? "パーティが満員です。どれか外してから追加してください。"
-    : `${hits.length} 件${hits.length > shown.length ? `（先頭 ${shown.length} 件を表示）` : ""}`;
+    : `${hits.length} 件${hits.length > shown.length ? `（先頭 ${shown.length} 件を表示）` : ""}`
+      + (dupCount ? ` ／ うち ${dupCount} 件は編成済みのため選べません` : "");
 }
 
 function renderFullChart() {
